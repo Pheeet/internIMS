@@ -188,20 +188,18 @@ export async function updateStudentAndInternshipInfo(
       },
     });
 
-    if (internshipId) {
-      await prisma.internship.update({
-        where: { id: internshipId },
-        data: {
-          position: data.position,
-          department: data.department,
-          company: data.company,
-          supervisorName: data.supervisorName,
-          startDate: data.startDate ? new Date(data.startDate) : undefined,
-          endDate: data.endDate ? new Date(data.endDate) : undefined,
-          remarks: data.remarks,
-        },
-      });
-    }
+    await prisma.internship.update({
+      where: { id: internshipId },
+      data: {
+        position: data.position,
+        department: data.department,
+        company: data.company,
+        supervisorName: data.supervisorName,
+        startDate: data.startDate ? new Date(data.startDate) : undefined,
+        endDate: data.endDate ? new Date(data.endDate) : undefined,
+        remarks: data.remarks,
+      },
+    });
 
     return { success: true };
   } catch (error: any) {
@@ -228,13 +226,13 @@ export async function revertEditRequestedToApproved(internshipId: string) {
   const session = await getSession();
   if (!session?.user?.email) return { success: false, error: "Unauthorized" };
 
-  const adminUser = await prisma.user.findUnique({
-    where: { email: session.user.email },
-  });
-
-  if (!adminUser) return { success: false, error: "Unauthorized" };
-
   try {
+    const adminUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!adminUser) return { success: false, error: "Unauthorized" };
+
     const internship = await prisma.internship.findUnique({
       where: { id: internshipId },
       include: {
@@ -372,15 +370,15 @@ export async function updateApprovedStudentInfo(
     return { success: false, error: "Unauthorized" };
   }
 
-  const adminUser = await prisma.user.findUnique({
-    where: { email: session.user.email },
-  });
-
-  if (!adminUser) {
-    return { success: false, error: "Unauthorized" };
-  }
-
   try {
+    const adminUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!adminUser) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     // --- Resolve studentId from internshipId ---
     const internshipRef = await prisma.internship.findUnique({ where: { id: internshipId }, select: { studentId: true } });
     if (!internshipRef) {
