@@ -1,19 +1,212 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String             @id @default(uuid())
+  email              String             @unique
+  passwordHash       String?
+  role               Role
+  status               UserStatus         @default(ACTIVE)
+  is_first_login       Boolean            @default(true)
+  profile_completed    Boolean            @default(false)
+  internship_submitted Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  deletedAt          DateTime?
+  adminProfile       AdminProfile?
+  attachments        Attachment[]
+  auditLogsActioned  AuditLog[]         @relation("ActionBy")
+  auditLogsTargeted  AuditLog[]         @relation("TargetUser")
+  internships        Internship[]
+  internshipsUpdated Internship[]       @relation("UpdatedByAdmin")
+  passwordResetOtps  PasswordResetOtp[]
+  studentProfile     StudentProfile?
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PasswordResetOtp {
+  id         String                  @id @default(uuid())
+  email      String                  @unique
+  otpHash    String
+  expiresAt  DateTime
+  attempts   Int                     @default(0)
+  verifiedAt DateTime?
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+  userId     String?
+  user       User?                   @relation(fields: [userId], references: [id])
+  auditLogs  PasswordResetOtpAudit[]
+
+  @@index([expiresAt])
+  @@index([verifiedAt])
+  @@index([userId])
+}
+
+model PasswordResetOtpAudit {
+  id        String            @id @default(uuid())
+  email     String
+  action    OtpAuditAction
+  message   String?
+  metadata  Json?
+  createdAt DateTime          @default(now())
+  otpId     String?
+  otp       PasswordResetOtp? @relation(fields: [otpId], references: [id])
+
+  @@index([email])
+  @@index([action])
+  @@index([createdAt])
+  @@index([otpId])
+}
+
+model AdminProfile {
+  userId        String   @id
+  firstNameTh   String?
+  lastNameTh    String?
+  phoneNumber   String?
+  positionTitle String?
+  department    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model StudentProfile {
+  userId               String    @id
+  profilePictureUrl    String?
+  prefix               String
+  firstNameTh          String
+  lastNameTh           String
+  gender               String?
+  dob                  DateTime?
+  phoneNumber          String?
+  emergencyPhone       String?
+  contactAddress       String?
+  educationLevel       String?
+  institution          String?
+  faculty              String?
+  major                String?
+  advisorName          String?
+  advisorPhone         String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  guardianName         String?
+  guardianRelationship String?
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Internship {
+  id               String           @id @default(uuid())
+  studentId        String
+  position         String
+  department       String?
+  company          String?
+  supervisorName   String?
+  startDate        DateTime
+  endDate          DateTime
+  status           InternshipStatus @default(PENDING)
+  remarks          String?
+  updatedBy        String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  flaggedFields    Json?
+  previousSnapshot Json?
+  attachments      Attachment[]
+  student          User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  updatedByAdmin   User?            @relation("UpdatedByAdmin", fields: [updatedBy], references: [id])
+
+  @@index([studentId])
+  @@index([status])
+  @@index([updatedBy])
+}
+
+model Attachment {
+  id           String           @id @default(uuid())
+  studentId    String
+  internshipId String?
+  fileName     String
+  fileUrl      String
+  fileType     String
+  fileSize     Int
+  uploadedAt   DateTime         @default(now())
+  status       AttachmentStatus @default(PENDING)
+  rejectReason String?
+  internship   Internship?      @relation(fields: [internshipId], references: [id], onDelete: Cascade)
+  student      User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([internshipId])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  actionBy     String
+  actionType   String
+  resourceType String?
+  resourceId   String?
+  targetUserId String?
+  oldValue     String?
+  newValue     String?
+  description  String?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+  actionByUser User     @relation("ActionBy", fields: [actionBy], references: [id], onDelete: Cascade)
+  targetUser   User?    @relation("TargetUser", fields: [targetUserId], references: [id])
+
+  @@index([actionBy])
+  @@index([targetUserId])
+  @@index([actionType])
+  @@index([createdAt])
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum InternshipStatus {
+  PENDING
+  REJECTED
+  EDIT_REQUESTED
+  APPROVED
+  COMPLETED
+}
+
+enum OtpAuditAction {
+  REQUESTED
+  SENT
+  SEND_FAILED
+  VERIFY_FAILED
+  VERIFIED
+  EXPIRED
+  RATE_LIMITED
+  USER_NOT_FOUND
+  RESET_COMPLETED
+  CLEANED_UP
+}
+
+enum AttachmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

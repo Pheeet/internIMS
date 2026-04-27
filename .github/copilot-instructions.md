@@ -3,7 +3,7 @@
 Apply these rules across this repository.
 
 ## Stack Requirements
-- Use Next.js 16.2.4 and React 19 as defined in [package.json](package.json).
+- Use Next.js 16.2.4 and React 19 as defined in [package.json](../package.json).
 - Use App Router only. Create routes and layouts in src/app.
 - Use Tailwind CSS version ^4 for styling.
 - Use shadcn for reusable UI components.
@@ -25,6 +25,6 @@ Apply these rules across this repository.
 - Keep PRs focused and avoid unrelated refactors.
 
 ## References
-- Main agent rules: [AGENTS.md](AGENTS.md)
-- Alias instructions: [AGENT.md](AGENT.md)
-- Baseline project docs: [README.md](README.md)
+- Main agent rules: [AGENTS.md](../AGENTS.md)
+- Alias instructions: [AGENT.md](../AGENT.md)
+- Baseline project docs: [README.md](../README.md)
