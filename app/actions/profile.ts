@@ -51,7 +51,7 @@ export async function saveProfileInfo(_prevState: unknown, formData: FormData) {
     return { success: false, error: "กรุณากรอกข้อมูลให้ครบถ้วน", fields };
   }
 
-  const dob = dobStr ? new Date(dobStr) : null;
+  const dob = new Date(dobStr);
 
   // Handle profile picture upload — save to /public/uploads/profiles/
   let profilePictureUrl: string | undefined = undefined;
@@ -97,8 +97,8 @@ export async function saveProfileInfo(_prevState: unknown, formData: FormData) {
       phoneNumber,
       emergencyPhone,
       contactAddress,
-      guardianName: guardianName || null,
-      guardianRelationship: guardianRelationship || null,
+      guardianName: guardianName,
+      guardianRelationship: guardianRelationship,
       // Only update profilePictureUrl if a new file was uploaded
       ...(profilePictureUrl !== undefined && { profilePictureUrl }),
     };
