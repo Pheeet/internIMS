@@ -8,6 +8,7 @@ Instructions in this file apply to the whole repository.
 - Styling: Tailwind CSS v4 via PostCSS.
 - Source root convention: `src/`.
 - Routing convention: App Router only.
+- Design Preference: Prefer Light Mode as default; maintain a clean, white/off-white background with orange accents.
 
 ## First Commands To Run
 Run these from the repository root:

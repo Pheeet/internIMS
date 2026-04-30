@@ -1,7 +1,8 @@
 import "dotenv/config";
 
 async function main() {
-  console.log("No seed data");
+  console.log("No default seed data");
+  console.log("Use `npm run setup:test-accounts` to prepare deterministic local test accounts.");
 }
 
 main().catch((error) => {

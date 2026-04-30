@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
@@ -8,64 +8,30 @@ datasource db {
 }
 
 model User {
-  id                 String             @id @default(uuid())
-  email              String             @unique
-  passwordHash       String?
-  role               Role
-  status               UserStatus         @default(ACTIVE)
-  is_first_login       Boolean            @default(true)
-  profile_completed    Boolean            @default(false)
-  internship_submitted Boolean            @default(false)
-  createdAt            DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  deletedAt          DateTime?
-  adminProfile       AdminProfile?
-  attachments        Attachment[]
-  auditLogsActioned  AuditLog[]         @relation("ActionBy")
-  auditLogsTargeted  AuditLog[]         @relation("TargetUser")
-  internships        Internship[]
-  internshipsUpdated Internship[]       @relation("UpdatedByAdmin")
-  passwordResetOtps  PasswordResetOtp[]
-  studentProfile     StudentProfile?
+  id                   String          @id @default(uuid())
+  email                String          @unique
+  passwordHash         String?
+  role                 Role
+  status               UserStatus      @default(ACTIVE)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  deletedAt            DateTime?
+  internship_submitted Boolean         @default(false)
+  is_first_login       Boolean         @default(true)
+  profile_completed    Boolean         @default(false)
+  adminProfile         AdminProfile?
+  attachments          Attachment[]
+  auditLogsActioned    AuditLog[]      @relation("ActionBy")
+  auditLogsTargeted    AuditLog[]      @relation("TargetUser")
+  internships          Internship[]
+  internshipsUpdated   Internship[]    @relation("UpdatedByAdmin")
+  studentProfile       StudentProfile?
+  works                Work[]          @relation("StudentWorks")
 
   @@index([email])
   @@index([role])
   @@index([status])
   @@index([deletedAt])
-}
-
-model PasswordResetOtp {
-  id         String                  @id @default(uuid())
-  email      String                  @unique
-  otpHash    String
-  expiresAt  DateTime
-  attempts   Int                     @default(0)
-  verifiedAt DateTime?
-  createdAt  DateTime                @default(now())
-  updatedAt  DateTime                @updatedAt
-  userId     String?
-  user       User?                   @relation(fields: [userId], references: [id])
-  auditLogs  PasswordResetOtpAudit[]
-
-  @@index([expiresAt])
-  @@index([verifiedAt])
-  @@index([userId])
-}
-
-model PasswordResetOtpAudit {
-  id        String            @id @default(uuid())
-  email     String
-  action    OtpAuditAction
-  message   String?
-  metadata  Json?
-  createdAt DateTime          @default(now())
-  otpId     String?
-  otp       PasswordResetOtp? @relation(fields: [otpId], references: [id])
-
-  @@index([email])
-  @@index([action])
-  @@index([createdAt])
-  @@index([otpId])
 }
 
 model AdminProfile {
@@ -142,13 +108,28 @@ model Attachment {
   fileType     String
   fileSize     Int
   uploadedAt   DateTime         @default(now())
-  status       AttachmentStatus @default(PENDING)
   rejectReason String?
+  status       AttachmentStatus @default(PENDING)
   internship   Internship?      @relation(fields: [internshipId], references: [id], onDelete: Cascade)
   student      User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId])
   @@index([internshipId])
+}
+
+model Work {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  fileUrl     String
+  fileName    String
+  fileSize    Int
+  studentId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  student     User     @relation("StudentWorks", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
 }
 
 model AuditLog {
@@ -190,19 +171,6 @@ enum InternshipStatus {
   EDIT_REQUESTED
   APPROVED
   COMPLETED
-}
-
-enum OtpAuditAction {
-  REQUESTED
-  SENT
-  SEND_FAILED
-  VERIFY_FAILED
-  VERIFIED
-  EXPIRED
-  RATE_LIMITED
-  USER_NOT_FOUND
-  RESET_COMPLETED
-  CLEANED_UP
 }
 
 enum AttachmentStatus {

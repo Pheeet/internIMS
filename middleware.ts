@@ -6,8 +6,6 @@ const PUBLIC_PATHS = [
   "/api/auth",
   "/intern/api/auth",
   "/api/cron",
-  "/api/send-otp",
-  "/api/verify-otp",
   "/api/health",
 ];
 
@@ -36,7 +34,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/intern/student/profile", request.url));
   }
   if (pathname === "/intern/internship") {
-    return NextResponse.redirect(new URL("/intern/student/internship-form", request.url));
+    return NextResponse.redirect(new URL("/intern/student/internship", request.url));
   }
 
   // Check session cookie
@@ -57,7 +55,7 @@ export async function middleware(request: NextRequest) {
   const isStudent = user?.role === "STUDENT";
 
   // Student Guard Logic
-  const guardPaths = ["/intern/student", "/intern/change-password"];
+  const guardPaths = ["/intern/student"];
   const isGuarded = isStudent && guardPaths.some((p) => pathname.startsWith(p));
 
   if (isGuarded) {
@@ -76,17 +74,9 @@ export async function middleware(request: NextRequest) {
       if (flagsRes.ok) {
         const flags = await flagsRes.json();
 
-        // Allow students to visit change-password voluntarily from the profile menu.
-        if (pathname === "/intern/change-password") {
-          return NextResponse.next();
-        }
-
-        // 1. Force password change
+        // 1. Force password change (Logic block kept, but redirect removed as per request)
         if (flags.is_first_login) {
-          if (pathname !== "/intern/change-password") {
-            return NextResponse.redirect(new URL("/intern/change-password", request.url));
-          }
-          return NextResponse.next();
+          // Previously redirected to /intern/change-password
         }
 
         // 2. Force profile completion
@@ -110,8 +100,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Also apply is_first_login guard to /intern/student if not already covered
-  // (though the matcher covers it, we want to be explicit for the change-password redirect)
+
 
   return NextResponse.next();
 }
