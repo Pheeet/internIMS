@@ -24,7 +24,7 @@ type Student = {
   name: string;
   initials: string;
   email: string;
-  password: string;
+  password?: string;
   addedAt: string;
   addedByName: string;
 };
