@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { prisma } from "@/lib/prisma";
-import { setSessionCookie } from "@/lib/session";
+import { prisma } from "@/src/lib/prisma";
+import { setSessionCookie } from "@/src/lib/session";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 const CMU_TENANT = "cf81f1df-de59-4c29-91da-a2dfd04aa751";
@@ -79,11 +79,6 @@ export async function GET(request: NextRequest) {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
 
-    console.log("[CMU OAuth] userInfoRes status:", userInfoRes.status);
-    console.log("[CMU OAuth] userInfoRes headers:", Object.fromEntries(userInfoRes.headers.entries()));
-    const userInfoText = await userInfoRes.clone().text();
-    console.log("[CMU OAuth] userInfoRes body:", userInfoText);
-
     if (!userInfoRes.ok) {
       return NextResponse.redirect(
         new URL("/intern/login?error=oauth_userinfo_failed", BASE_URL),
@@ -117,31 +112,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let displayName = user.email;
-    if (user.role === "STUDENT") {
-      const profile = await prisma.studentProfile.findUnique({
-        where: { userId: user.id },
-        select: { prefix: true, firstNameTh: true, lastNameTh: true },
-      });
-      if (profile) {
-        displayName = `${profile.prefix}${profile.firstNameTh} ${profile.lastNameTh}`.trim();
-      }
-    } else {
-      const profile = await prisma.adminProfile.findUnique({
-        where: { userId: user.id },
-        select: { firstNameTh: true, lastNameTh: true },
-      });
-      if (profile?.firstNameTh) {
-        displayName = `${profile.firstNameTh} ${profile.lastNameTh ?? ""}`.trim();
-      }
-    }
-
-    await setSessionCookie({
-      id: user.id,
-      email: user.email,
-      name: displayName,
-      role: user.role,
-    });
+    await setSessionCookie(user.id);
 
     return NextResponse.redirect(new URL("/intern/dashboard", BASE_URL), { status: 302 });
   } catch {

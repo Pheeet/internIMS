@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { prisma } from "@/lib/prisma";
-import { setSessionCookie } from "@/lib/session";
+import { prisma } from "@/src/lib/prisma";
+import { setSessionCookie } from "@/src/lib/session";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 const CMU_TENANT = "cf81f1df-de59-4c29-91da-a2dfd04aa751";
@@ -29,7 +29,11 @@ export async function GET(request: NextRequest) {
   const storedState = cookieStore.get("oauth_state")?.value;
 
   // Validate CSRF state before anything else
-  if (!storedState || state !== storedState) {
+  if (!storedState) {
+    throw new Error("CMU OAuth error: state cookie not found. Possible cookie blocked or sameSite issue.");
+  }
+
+  if (state !== storedState) {
     return NextResponse.redirect(
       new URL("/intern/login?error=oauth_state_mismatch", BASE_URL)
     );
@@ -48,12 +52,6 @@ export async function GET(request: NextRequest) {
     const userInfoUrl =
       process.env.CMU_USERINFO_URL ??
       "https://api.cmu.ac.th/mis/cmuaccount/prod/v3/me/basicinfo";
-
-    // Debug: check client_secret length (should not be empty or have whitespace)
-    console.log("[CMU OAuth] client_secret length:", clientSecret?.length ?? 0, "(should be > 0)");
-    if (clientSecret?.trim() !== clientSecret) {
-      console.warn("[CMU OAuth] WARNING: client_secret may have leading/trailing whitespace!");
-    }
 
     // Exchange authorization code for access token
     const tokenRes = await fetch(tokenUrl, {
@@ -83,35 +81,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch CMU basic info — do not persist the access token
-    console.log("[CMU OAuth] Fetching userInfo from:", userInfoUrl);
     const userInfoRes = await fetch(userInfoUrl, {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
 
-    console.log("[CMU OAuth] userInfo response status:", userInfoRes.status);
-    console.log("[CMU OAuth] userInfo response headers:", {
-      contentType: userInfoRes.headers.get("content-type"),
-      contentLength: userInfoRes.headers.get("content-length"),
-    });
-
     if (!userInfoRes.ok) {
-      const errorBody = await userInfoRes.text();
-      console.error("[CMU OAuth] userInfo fetch failed:", {
-        status: userInfoRes.status,
-        statusText: userInfoRes.statusText,
-        body: errorBody,
-      });
       return NextResponse.redirect(
         new URL("/intern/login?error=oauth_userinfo_failed", BASE_URL)
       );
     }
 
     const userInfo = (await userInfoRes.json()) as CmuBasicInfo;
-    console.log("[CMU OAuth] userInfo received:", {
-      cmuitaccount: userInfo.cmuitaccount ? "[present]" : "[missing]",
-      keys: Object.keys(userInfo),
-    });
-
     const email = userInfo.cmuitaccount?.toLowerCase();
     if (!email) {
       return NextResponse.redirect(
@@ -134,33 +114,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build display name from profile
-    let displayName = user.email;
-    if (user.role === "STUDENT") {
-      const profile = await prisma.studentProfile.findUnique({
-        where: { userId: user.id },
-        select: { prefix: true, firstNameTh: true, lastNameTh: true },
-      });
-      if (profile) {
-        displayName =
-          `${profile.prefix}${profile.firstNameTh} ${profile.lastNameTh}`.trim();
-      }
-    } else {
-      const profile = await prisma.adminProfile.findUnique({
-        where: { userId: user.id },
-        select: { firstNameTh: true, lastNameTh: true },
-      });
-      if (profile?.firstNameTh) {
-        displayName = `${profile.firstNameTh} ${profile.lastNameTh ?? ""}`.trim();
-      }
-    }
-
-    await setSessionCookie({
-      id: user.id,
-      email: user.email,
-      name: displayName,
-      role: user.role,
-    });
+    await setSessionCookie(user.id);
 
     return NextResponse.redirect(new URL("/intern/dashboard", BASE_URL));
   } catch {

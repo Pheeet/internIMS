@@ -157,9 +157,11 @@ function createPool(): Pool {
 
   const sslConfig = sslEnabled
     ? {
-        // rejectUnauthorized: false is required for cloud providers
-        // (Railway, Supabase, Neon, Render) that use self-signed certs.
-        rejectUnauthorized: false,
+        // Enforce certificate validation in production by default.
+        // If DB_SSL_CA is provided, use it.
+        // allow override via DB_SSL_REJECT_UNAUTHORIZED if legacy bypass is absolutely required.
+        rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === "false" ? false : true,
+        ca: process.env.DB_SSL_CA ? process.env.DB_SSL_CA : undefined,
       }
     : false;
 

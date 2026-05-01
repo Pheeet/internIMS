@@ -89,6 +89,25 @@ npm run dev
 
 ---
 
+## 🔐 Required Environment Variables ก่อน Deploy
+
+ตัวแปร environment ต่อไปนี้ **ต้องกำหนดก่อน deploy ทุกครั้ง** มิฉะนั้นแอปจะ crash ตั้งแต่ startup:
+
+| Variable | ข้อกำหนด | ตัวอย่าง |
+|---|---|---|
+| `SESSION_PASSWORD` | ต้องยาว **อย่างน้อย 32 ตัวอักษร** (ใช้เข้ารหัส session cookie ด้วย iron-session) | `openssl rand -hex 32` |
+| `HEALTH_CHECK_TOKEN` | ต้องกำหนดเสมอ (endpoint `/api/health/db` จะปิดทุก request ถ้าไม่มี token นี้) | `openssl rand -hex 24` |
+
+> **คำเตือน:** ถ้า `SESSION_PASSWORD` ไม่ถูกตั้งค่าหรือสั้นกว่า 32 ตัวอักษร เซิร์ฟเวอร์จะหยุดทำงานทันทีพร้อม error `SESSION_PASSWORD must be set and at least 32 characters long`
+
+สร้างค่าทั้งสองด้วยคำสั่ง:
+```bash
+echo "SESSION_PASSWORD=$(openssl rand -hex 32)"
+echo "HEALTH_CHECK_TOKEN=$(openssl rand -hex 24)"
+```
+
+---
+
 ## ⚙️ การตั้งค่า Cron Jobs
 ระบบมี Endpoint สำหรับงานอัตโนมัติ (ต้องส่ง `Bearer <CRON_SECRET>` ใน Header):
 - `GET /api/cron/cleanup-logs`: ล้าง Log ที่เก่ากว่า 10 ปี

@@ -342,7 +342,7 @@ export default function InternshipForm({
           setExistingFiles(uniqueFiles as any[]);
         }
       })
-      .catch(console.error);
+      .catch((e: unknown) => console.error("Failed to load profile:", e instanceof Error ? e.message : String(e)));
   }, []);
 
   const status = initialInternship?.status;
@@ -353,7 +353,6 @@ export default function InternshipForm({
 
   // Helper to parse JSON feedback for display
   const getFeedbackList = () => {
-    console.log("[getFeedbackList] RAW REMARKS:", initialInternship?.remarks);
     if (!initialInternship?.remarks) return null;
     const fieldMap: Record<string, string> = {
       prefix: "คำนำหน้า ",
@@ -392,8 +391,6 @@ export default function InternshipForm({
     const result: { label: string | null; reason: string }[] = [];
     rawList.forEach((item: any) => {
       const text = (item.reason || "").toString();
-      // Debug raw data
-      console.log("[getFeedbackList] raw text:", text);
 
       // Prioritize " | ", newline, or ":" to avoid dash splitting on filenames
       let parts: string[] = [];

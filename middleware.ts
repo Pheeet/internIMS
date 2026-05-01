@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { rateLimit } from "@/src/lib/rate-limit";
 
 const PUBLIC_PATHS = [
   "/intern/login",
@@ -7,6 +8,7 @@ const PUBLIC_PATHS = [
   "/intern/api/auth",
   "/api/cron",
   "/api/health",
+  "/uploads",
 ];
 
 export async function middleware(request: NextRequest) {
@@ -37,34 +39,22 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/intern/student/internship", request.url));
   }
 
-  // Check session cookie
-  const sessionValue = request.cookies.get("ims_session")?.value;
+  // Check session cookie (ims_session_v2 - encrypted with iron-session)
+  const sessionValue = request.cookies.get("ims_session_v2")?.value;
   if (!sessionValue) {
     return NextResponse.redirect(new URL("/intern/login", request.url));
   }
 
-  // Parse session to check role
-  let sessionData;
-  try {
-    sessionData = JSON.parse(Buffer.from(sessionValue, "base64url").toString("utf-8"));
-  } catch (e) {
-    return NextResponse.redirect(new URL("/intern/login", request.url));
-  }
-
-  const user = sessionData.user;
-  const isStudent = user?.role === "STUDENT";
-
-  // Student Guard Logic
+  // Student Guard Logic - Check fresh flags from DB
   const guardPaths = ["/intern/student"];
-  const isGuarded = isStudent && guardPaths.some((p) => pathname.startsWith(p));
+  const isStudentPath = guardPaths.some((p) => pathname.startsWith(p));
 
-  if (isGuarded) {
+  if (isStudentPath) {
     try {
       // Fetch fresh flags from DB via internal API
+      // We pass the new ims_session_v2 cookie so the API can decode it
       const flagsRes = await fetch(new URL("/api/auth/user-flags", request.url), {
-        headers: { Cookie: `ims_session=${sessionValue}` },
-        // Standard fetch in middleware can take a timeout signal if needed, but usually 
-        // we want to fail fast or fallback.
+        headers: { Cookie: `ims_session_v2=${sessionValue}` },
       });
 
       if (flagsRes.status === 401) {
@@ -74,17 +64,12 @@ export async function middleware(request: NextRequest) {
       if (flagsRes.ok) {
         const flags = await flagsRes.json();
 
-        // 1. Force password change (Logic block kept, but redirect removed as per request)
-        if (flags.is_first_login) {
-          // Previously redirected to /intern/change-password
-        }
-
-        // 2. Force profile completion
+        // 1. Force profile completion
         if (!flags.profile_completed && pathname !== "/intern/student/profile") {
           return NextResponse.redirect(new URL("/intern/student/profile", request.url));
         }
 
-        // 3. Force internship submission
+        // 2. Force internship submission
         if (
           flags.profile_completed &&
           !flags.internship_submitted &&
@@ -95,12 +80,35 @@ export async function middleware(request: NextRequest) {
       }
     } catch (error) {
       console.error("Middleware student guard error:", error);
-      // Fallback: If API fails, allow user to proceed to avoid total blackout
       return NextResponse.next();
     }
   }
 
+  // --- Rate Limiting Phase ---
+  
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "127.0.0.1";
 
+  // 1. Admin Management Endpoints (20 per IP per minute)
+  if (pathname.startsWith("/api/admin")) {
+    const adminLimit = await rateLimit(`admin:${ip}`, { interval: 60 * 1000, limit: 20 });
+    if (!adminLimit.success) {
+      return new NextResponse("Too Many Requests", {
+        status: 429,
+        headers: { "Retry-After": Math.ceil((adminLimit.reset - Date.now()) / 1000).toString() }
+      });
+    }
+  }
+
+  // 2. Student Attachment Re-upload (10 per user per hour)
+  if (pathname.match(/^\/api\/student\/attachments\/[^/]+\/reupload$/)) {
+    const uploadLimit = await rateLimit(`upload:${sessionValue}`, { interval: 60 * 60 * 1000, limit: 10 });
+    if (!uploadLimit.success) {
+      return new NextResponse("Upload limit exceeded. Please try again later.", {
+        status: 429,
+        headers: { "Retry-After": Math.ceil((uploadLimit.reset - Date.now()) / 1000).toString() }
+      });
+    }
+  }
 
   return NextResponse.next();
 }

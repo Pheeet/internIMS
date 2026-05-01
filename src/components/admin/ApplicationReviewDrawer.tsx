@@ -801,9 +801,6 @@ export default function ApplicationReviewDrawer({
     startTransition(async () => {
       await updateInternshipStatus(internship.id, "REJECTED", remarks);
 
-      console.log("fileReviews:", fileReviews);
-      console.log("files to update:", Object.entries(fileReviews).filter(([, v]) => v.status === "REJECTED" || v.status === "APPROVED"));
-
       // 2. Sync ALL file statuses to DB
       await Promise.all(
         files.map((file) => {

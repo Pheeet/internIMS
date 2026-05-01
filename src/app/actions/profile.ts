@@ -1,22 +1,19 @@
 "use server";
 
-import { getSession } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/src/lib/session";
+import { prisma } from "@/src/lib/prisma";
 import { redirect } from "next/navigation";
-import { replaceFileAtomically } from "@/lib/storage";
-import { studentProfileSchema } from "@/lib/schemas/student-profile.schema";
+import { replaceFileAtomically } from "@/src/lib/storage";
+import { studentProfileSchema } from "@/src/lib/schemas/student-profile.schema";
 
 export async function saveProfileInfo(_prevState: unknown, formData: FormData) {
-  const session = await getSession();
+  const user = await getCurrentUser();
 
-  if (!session?.user?.email) {
+  if (!user?.email) {
     return { success: false, error: "กรุณาเข้าสู่ระบบ" };
   }
 
-  const userId = session.user.id;
-  if (!userId) {
-    return { success: false, error: "ไม่พบข้อมูลผู้ใช้งานในระบบ" };
-  }
+  const userId = user.id;
   
   // Guard: Check if internship is COMPLETED
   const internships = await prisma.internship.findMany({

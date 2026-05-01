@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/src/lib/session";
+import { prisma } from "@/src/lib/prisma";
 
 export async function GET() {
   try {
-    const session = await getSession();
+    const user = await getCurrentUser();
     
-    if (!session || session.user.role !== "SUPER_ADMIN") {
-      console.warn("[DEBUG] Unauthorized access to admins endpoint, role:", session?.user?.role);
+    if (!user || user.role !== "SUPER_ADMIN") {
+      console.warn("[DEBUG] Unauthorized access to admins endpoint, role:", user?.role);
       return NextResponse.json({ error: "Unauthorized - SUPER_ADMIN role required" }, { status: 403 });
     }
 
@@ -62,18 +62,10 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const session = await getSession();
-    if (!session || session.user.role !== "SUPER_ADMIN") {
-      console.warn("[DEBUG] Unauthorized POST to admins endpoint, role:", session?.user?.role);
+    const adminUser = await getCurrentUser();
+    if (!adminUser || adminUser.role !== "SUPER_ADMIN") {
+      console.warn("[DEBUG] Unauthorized POST to admins endpoint, role:", adminUser?.role);
       return NextResponse.json({ error: "Unauthorized - SUPER_ADMIN role required" }, { status: 403 });
-    }
-
-    const adminUser = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!adminUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { email, firstNameTh, lastNameTh } = await req.json();

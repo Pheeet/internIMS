@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { requireAdminUser } from "@/src/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function DELETE(
@@ -7,18 +7,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
-    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
-
-    const adminUser = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!adminUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const adminUser = await requireAdminUser();
 
     const { id } = await params;
 

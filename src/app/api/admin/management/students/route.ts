@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/src/lib/session";
+import { prisma } from "@/src/lib/prisma";
 import bcrypt from "bcrypt";
 
 export async function GET() {
   try {
-    const session = await getSession();
+    const user = await getCurrentUser();
     
-    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+    if (!user || !["ADMIN", "SUPER_ADMIN"].includes(user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -62,17 +62,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const session = await getSession();
-    if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+    const adminUser = await getCurrentUser();
+    if (!adminUser || !["ADMIN", "SUPER_ADMIN"].includes(adminUser.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
-
-    const adminUser = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!adminUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { email, password, prefix, firstNameTh, lastNameTh } = await req.json();
@@ -87,7 +79,7 @@ export async function POST(req: Request) {
 
     let passwordHash: string | null = null;
     if (password) {
-      passwordHash = await bcrypt.hash(password, 10);
+      passwordHash = await bcrypt.hash(password, 12);
     }
 
     const user = await prisma.user.create({

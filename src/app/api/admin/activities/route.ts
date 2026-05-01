@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { prisma } from "@/src/lib/prisma";
+import { getCurrentUser } from "@/src/lib/session";
 
 type LogGroup =
   | "Status flow"
@@ -66,12 +66,12 @@ function displayNameFromUser(user?: {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const session = await getSession();
-  if (!session?.user) {
+  const user = await getCurrentUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const role = session.user.role?.toUpperCase();
+  const role = user.role?.toUpperCase();
   if (role !== "ADMIN" && role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

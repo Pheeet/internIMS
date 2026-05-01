@@ -1,6 +1,6 @@
 "use server";
 
-import { getSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import fs from "fs/promises";
@@ -49,31 +49,20 @@ async function sendInternshipTelegramNotification(
       sendTelegramNotification(message);
     }
   } catch (error) {
-    console.error("[TELEGRAM] Failed to send notification:", error);
+    console.error("[TELEGRAM] Failed to send notification:", error instanceof Error ? error.message : String(error));
   }
 }
 export async function submitInternshipApplication(
   _prevState: unknown,
   formData: FormData
 ) {
-  console.log("DEBUG: submitInternshipApplication START");
-  const session = await getSession();
-
-  if (!session?.user?.email) {
+  const user = await getCurrentUser();
+ 
+  if (!user?.email) {
     return { success: false, error: "กรุณาเข้าสู่ระบบ" };
   }
 
-  // Resolve real DB user from mock email
-  const dbUser = await prisma.user.findUnique({
-    where: { email: session.user.email },
-  });
-
-  if (!dbUser) {
-    return { success: false, error: "ไม่พบผู้ใช้งานในระบบ" };
-  }
-
-  const userId = dbUser.id;
-  console.log("DEBUG: userId:", userId);
+  const userId = user.id;
 
   const position = formData.get("position") as string;
   const department = formData.get("department") as string;
@@ -201,7 +190,6 @@ export async function submitInternshipApplication(
         student: { include: { studentProfile: true } }
       },
     });
-    console.log("DEBUG: existing found:", !!existing);
 
     // Atomic Profile Picture Update
     const performProfileUpdate = async (pUrl?: string) => {
@@ -376,7 +364,7 @@ export async function submitInternshipApplication(
         for (const old of oldAttachments) {
           if (old.fileUrl) {
             const oldPath = path.join(process.cwd(), "public", old.fileUrl);
-            try { await fs.unlink(oldPath); } catch (e) { console.error("Cleanup failed", e); }
+            try { await fs.unlink(oldPath); } catch (e) { console.error("Cleanup failed", e instanceof Error ? e.message : String(e)); }
           }
         }
       }
@@ -425,7 +413,7 @@ export async function submitInternshipApplication(
 
     return { success: true };
   } catch (error) {
-    console.error("Failed to submit internship:", error);
+    console.error("Failed to submit internship:", error instanceof Error ? error.message : String(error));
     return { success: false, error: "เกิดข้อผิดพลาดในการบันทึกข้อมูล" };
   }
 

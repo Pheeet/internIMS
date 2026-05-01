@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { setSessionCookie } from "@/lib/session";
+import { cookies } from "next/headers";
+import { prisma } from "@/src/lib/prisma";
+import { setSessionCookie } from "@/src/lib/session";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 
@@ -12,12 +13,26 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
+  const state = searchParams.get("state");
   const error = searchParams.get("error");
 
   // User cancelled or provider error → return silently
-  if (error || !code) {
+  if (error || !code || !state) {
     return NextResponse.redirect(new URL("/intern/login", BASE_URL));
   }
+
+  const cookieStore = await cookies();
+  const storedState = cookieStore.get("oauth_state")?.value;
+
+  if (!storedState) {
+    throw new Error("Google OAuth error: state cookie not found. Possible cookie blocked or sameSite issue.");
+  }
+
+  if (state !== storedState) {
+    return NextResponse.redirect(new URL("/intern/login?error=oauth_state_mismatch", BASE_URL));
+  }
+
+  cookieStore.delete("oauth_state");
 
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID!;
@@ -73,27 +88,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/intern/login?error=suspended", BASE_URL));
     }
 
-    // Build display name
-    let displayName = user.email;
-    if (user.role === "STUDENT") {
-      const profile = await prisma.studentProfile.findUnique({
-        where: { userId: user.id },
-        select: { prefix: true, firstNameTh: true, lastNameTh: true },
-      });
-      if (profile) {
-        displayName = `${profile.prefix}${profile.firstNameTh} ${profile.lastNameTh}`.trim();
-      }
-    } else {
-      const profile = await prisma.adminProfile.findUnique({
-        where: { userId: user.id },
-        select: { firstNameTh: true, lastNameTh: true },
-      });
-      if (profile?.firstNameTh) {
-        displayName = `${profile.firstNameTh} ${profile.lastNameTh ?? ""}`.trim();
-      }
-    }
-
-    await setSessionCookie({ id: user.id, email: user.email, name: displayName, role: user.role });
+    await setSessionCookie(user.id);
 
     return NextResponse.redirect(new URL("/intern/dashboard", BASE_URL));
   } catch {

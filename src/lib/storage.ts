@@ -3,8 +3,55 @@ import path from "path";
 import crypto from "crypto";
 import { prisma } from "./prisma";
 
-const UPLOAD_BASE = path.join(process.cwd(), "public", "uploads");
-const TEMP_DIR = path.join(UPLOAD_BASE, "temp");
+// Use path.resolve to get an absolute, normalized base path
+const UPLOAD_BASE = path.resolve(process.cwd(), "public", "uploads");
+const TEMP_DIR = path.resolve(UPLOAD_BASE, "temp");
+
+/**
+ * Validates and resolves a file URL to a safe absolute path on disk.
+ * Prevents path traversal by ensuring the resolved path is within UPLOAD_BASE.
+ */
+async function getSafePath(fileUrl: string): Promise<string> {
+  // 1. Normalize: convert to relative path within uploads
+  let relativePath = fileUrl;
+  if (fileUrl.startsWith("/uploads/")) {
+    relativePath = fileUrl.substring(9);
+  } else if (fileUrl.startsWith("uploads/")) {
+    relativePath = fileUrl.substring(8);
+  }
+
+  // 2. Reject suspicious characters/patterns (including null bytes and Windows paths)
+  if (
+    relativePath.includes("..") ||
+    relativePath.includes("\\") ||
+    relativePath.includes(":") ||
+    relativePath.includes("\x00") ||
+    relativePath.startsWith("/")
+  ) {
+    throw new Error("Invalid file path detected");
+  }
+
+  // 3. Resolve to absolute path
+  const resolvedPath = path.resolve(UPLOAD_BASE, relativePath);
+
+  // 4. Textual containment check: must be inside UPLOAD_BASE
+  if (!resolvedPath.startsWith(UPLOAD_BASE)) {
+    throw new Error("Path traversal attempt detected");
+  }
+
+  // 5. Symlink check: reject symlinks that could point outside UPLOAD_BASE
+  try {
+    const stat = await fs.lstat(resolvedPath);
+    if (stat.isSymbolicLink()) {
+      throw new Error("Symlinks are not permitted in upload paths");
+    }
+  } catch (e: any) {
+    if (e.code !== "ENOENT") throw e;
+    // File does not exist — safe to proceed (caller will handle ENOENT)
+  }
+
+  return resolvedPath;
+}
 
 /**
  * Ensures a directory exists
@@ -33,20 +80,30 @@ export async function replaceFileAtomically<T>(
   const bytes = await newFile.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
+  // Validate subDir to prevent traversal during directory creation
+  if (subDir.includes("..") || subDir.includes("/") || subDir.includes("\\")) {
+    throw new Error("Invalid subdirectory name");
+  }
+
   await ensureDir(TEMP_DIR);
-  const targetDir = path.join(UPLOAD_BASE, subDir);
+  const targetDir = path.resolve(UPLOAD_BASE, subDir);
   await ensureDir(targetDir);
 
   const fileExtension = path.extname(newFile.name);
+  // Ensure extension is safe (basic check)
+  if (!/^\.[a-zA-Z0-9]+$/.test(fileExtension)) {
+    throw new Error("Invalid file extension");
+  }
+
   const tempFileName = `temp-${crypto.randomUUID()}${fileExtension}`;
-  const tempPath = path.join(TEMP_DIR, tempFileName);
+  const tempPath = path.resolve(TEMP_DIR, tempFileName);
 
   // 1. Save to temp
   await fs.writeFile(tempPath, buffer);
 
   const permanentFileName = `${crypto.randomUUID()}${fileExtension}`;
   const permanentUrl = `/uploads/${subDir}/${permanentFileName}`;
-  const permanentPath = path.join(targetDir, permanentFileName);
+  const permanentPath = path.resolve(targetDir, permanentFileName);
 
   try {
     // 2. Perform DB Update
@@ -57,12 +114,12 @@ export async function replaceFileAtomically<T>(
 
     // 4. Delete old file only after success
     if (oldFileUrl) {
-      const oldPath = path.join(process.cwd(), "public", oldFileUrl);
       try {
+        const oldPath = await getSafePath(oldFileUrl);
         await fs.unlink(oldPath);
         console.log(`[STORAGE] Deleted old file: ${oldFileUrl}`);
-      } catch (e) {
-        console.warn(`[STORAGE] Failed to delete old file (orphaned): ${oldFileUrl}`, e);
+      } catch (e: any) {
+        console.warn(`[STORAGE] Failed to delete old file (orphaned or unsafe): ${oldFileUrl}`, e.message);
       }
     }
 
@@ -87,13 +144,11 @@ export async function deleteFileSafely(
   dbDeleteCallback: () => Promise<void>
 ) {
   // 1. Verify ownership directly from DB
-  // First check in Attachment model
   const attachment = await prisma.attachment.findFirst({
     where: { fileUrl: fileUrl },
     select: { studentId: true }
   });
 
-  // Then check in StudentProfile model (profile picture)
   const profile = await prisma.studentProfile.findFirst({
     where: { profilePictureUrl: fileUrl },
     select: { userId: true }
@@ -114,13 +169,13 @@ export async function deleteFileSafely(
   // 2. Proceed with DB record deletion
   await dbDeleteCallback();
 
-  // 3. Finally delete from disk
-  const filePath = path.join(process.cwd(), "public", fileUrl);
+  // 3. Finally delete from disk using safe path validation
   try {
+    const filePath = await getSafePath(fileUrl);
     await fs.unlink(filePath);
     console.log(`[STORAGE] Manually deleted file: ${fileUrl}`);
-  } catch (e) {
-    console.error(`[STORAGE] Error deleting file from disk: ${fileUrl}`, e);
+  } catch (e: any) {
+    console.error(`[STORAGE] Error deleting file from disk: ${fileUrl}`, e.message);
   }
 }
 
@@ -135,7 +190,7 @@ export async function cleanupOrphanedFiles() {
   const tempFiles = await fs.readdir(TEMP_DIR);
   const now = Date.now();
   for (const file of tempFiles) {
-    const filePath = path.join(TEMP_DIR, file);
+    const filePath = path.resolve(TEMP_DIR, file);
     const stats = await fs.stat(filePath);
     if (now - stats.mtimeMs > 24 * 60 * 60 * 1000) {
       await fs.unlink(filePath);
@@ -146,7 +201,7 @@ export async function cleanupOrphanedFiles() {
   // 2. Scan permanent uploads and verify DB reference
   const dirs = ["profiles", "internships"];
   for (const dir of dirs) {
-    const fullDir = path.join(UPLOAD_BASE, dir);
+    const fullDir = path.resolve(UPLOAD_BASE, dir);
     await ensureDir(fullDir);
     const files = await fs.readdir(fullDir);
 
@@ -158,8 +213,16 @@ export async function cleanupOrphanedFiles() {
       const profile = await prisma.studentProfile.findFirst({ where: { profilePictureUrl: url } });
 
       if (!attachment && !profile) {
-        await fs.unlink(path.join(fullDir, file));
-        console.log(`[STORAGE] Deleted orphaned file: ${url}`);
+        try {
+          const filePath = path.resolve(fullDir, file);
+          // Additional safety check before unlinking in bulk
+          if (filePath.startsWith(UPLOAD_BASE)) {
+            await fs.unlink(filePath);
+            console.log(`[STORAGE] Deleted orphaned file: ${url}`);
+          }
+        } catch (e: any) {
+          console.error(`[STORAGE] Error cleaning up orphaned file ${url}:`, e.message);
+        }
       }
     }
   }

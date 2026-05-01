@@ -1,9 +1,9 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { prisma } from "@/src/lib/prisma";
+import { requireAdminUser } from "@/src/lib/auth";
 import { revalidatePath } from "next/cache";
-import type { AdminInternshipFormValues } from "@/lib/schemas/admin-internship.schema";
+import type { AdminInternshipFormValues } from "@/src/lib/schemas/admin-internship.schema";
 import { Prisma } from "@/src/generated/prisma/client";
 
 // Update internship status directly
@@ -12,14 +12,7 @@ export async function updateInternshipStatus(
   newStatus: "PENDING" | "REJECTED" | "APPROVED" | "EDIT_REQUESTED" | "COMPLETED",
   remarks?: string
 ) {
-  const session = await getSession();
-  if (!session?.user?.email) return { success: false, error: "Unauthorized" };
-
-  const adminUser = await prisma.user.findUnique({
-    where: { email: session.user.email },
-  });
-
-  if (!adminUser) return { success: false, error: "Unauthorized" };
+  const adminUser = await requireAdminUser();
 
   try {
     // Fetch current internship to get old status
@@ -56,7 +49,6 @@ export async function updateInternshipStatus(
       },
     });
 
-
     revalidatePath("/intern/admin/internships");
     revalidatePath("/intern/admin");
     revalidatePath("/intern/student");
@@ -65,7 +57,7 @@ export async function updateInternshipStatus(
     return { success: true };
   } catch (error: any) {
     console.error("Failed to update status:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" };
   }
 }
 
@@ -75,6 +67,8 @@ export async function updateStudentAndInternshipInfo(
   internshipId: string | null,
   data: AdminInternshipFormValues
 ) {
+  await requireAdminUser();
+
   if (!internshipId) {
     return { success: false, error: "Missing internshipId" };
   }
@@ -126,12 +120,14 @@ export async function updateStudentAndInternshipInfo(
     return { success: true };
   } catch (error: any) {
     console.error("[updateStudentAndInternshipInfo] Save failed:", error);
-    return { success: false, error: error?.message || "Failed to update" };
+    return { success: false, error: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" };
   }
 }
 
 // Manually revert a COMPLETED internship back to APPROVED (e.g. extension granted)
 export async function manualRevertToApproved(internshipId: string) {
+  await requireAdminUser();
+
   try {
     await prisma.internship.update({
       where: { id: internshipId },
@@ -139,22 +135,16 @@ export async function manualRevertToApproved(internshipId: string) {
     });
     return { success: true };
   } catch (error: any) {
-    return { success: false, error: error?.message || "Failed to revert" };
+    console.error("Failed to revert to APPROVED:", error);
+    return { success: false, error: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" };
   }
 }
 
 // Revert EDIT_REQUESTED changes using previousSnapshot and set status back to APPROVED.
 export async function revertEditRequestedToApproved(internshipId: string) {
-  const session = await getSession();
-  if (!session?.user?.email) return { success: false, error: "Unauthorized" };
+  const adminUser = await requireAdminUser();
 
   try {
-    const adminUser = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!adminUser) return { success: false, error: "Unauthorized" };
-
     const internship = await prisma.internship.findUnique({
       where: { id: internshipId },
       include: {
@@ -277,7 +267,7 @@ export async function revertEditRequestedToApproved(internshipId: string) {
     return { success: true };
   } catch (error: any) {
     console.error("Failed to revert EDIT_REQUESTED to APPROVED:", error);
-    return { success: false, error: error?.message || "ไม่สามารถย้อนข้อมูลได้" };
+    return { success: false, error: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" };
   }
 }
 
@@ -286,6 +276,8 @@ export async function saveFlaggedFields(
   internshipId: string,
   flaggedFields: Record<string, { flagged: boolean; reason: string }>
 ) {
+  await requireAdminUser();
+
   try {
     await prisma.internship.update({
       where: { id: internshipId },
@@ -293,7 +285,8 @@ export async function saveFlaggedFields(
     });
     return { success: true };
   } catch (error: any) {
-    return { success: false, error: error?.message || "Failed to save flags" };
+    console.error("Failed to save flagged fields:", error);
+    return { success: false, error: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" };
   }
 }
 
@@ -304,20 +297,9 @@ export async function updateApprovedStudentInfo(
   internshipId: string,
   data: AdminInternshipFormValues
 ) {
-  const session = await getSession();
-  if (!session?.user?.email) {
-    return { success: false, error: "Unauthorized" };
-  }
+  const adminUser = await requireAdminUser();
 
   try {
-    const adminUser = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!adminUser) {
-      return { success: false, error: "Unauthorized" };
-    }
-
     // --- Resolve studentId from internshipId ---
     const internshipRef = await prisma.internship.findUnique({ where: { id: internshipId }, select: { studentId: true } });
     if (!internshipRef) {
@@ -435,6 +417,6 @@ export async function updateApprovedStudentInfo(
     return { success: true, changes };
   } catch (error: any) {
     console.error("[updateApprovedStudentInfo] failed:", error);
-    return { success: false, error: error?.message || "Failed to update" };
+    return { success: false, error: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" };
   }
 }

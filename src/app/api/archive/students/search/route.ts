@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { prisma } from "@/src/lib/prisma";
+import { requireAdminUser } from "@/src/lib/auth";
 
+/**
+ * Archive student search endpoint.
+ * Currently under development and NOT used in the current UI.
+ * Restricted to ADMIN and SUPER_ADMIN roles.
+ */
 export async function GET(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    // Verify admin role via database check
+    await requireAdminUser();
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") || "";
 
-    if (query.length < 2) {
+    if (query.length < 2 || query.length > 100) {
       return NextResponse.json([]);
     }
 
@@ -47,7 +50,13 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json(result);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes("Unauthorized") || error.message?.includes("Forbidden")) {
+      return NextResponse.json(
+        { error: error.message.includes("Unauthorized") ? "Unauthorized" : "Forbidden" },
+        { status: error.message.includes("Unauthorized") ? 401 : 403 }
+      );
+    }
     console.error("Error searching students:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }

@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
-import NavTabs from "@/components/NavTabs";
-import ProfileDropdown from "@/components/ProfileDropdown";
+import { getCurrentUser } from "@/src/lib/session";
+import NavTabs from "@/src/components/NavTabs";
+import ProfileDropdown from "@/src/components/ProfileDropdown";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSession();
-  if (!session) redirect("/intern/login");
-  const role = session.user?.role?.toUpperCase();
+  const user = await getCurrentUser();
+  if (!user) redirect("/intern/login");
+  const role = user.role?.toUpperCase();
   if (role !== "ADMIN" && role !== "SUPER_ADMIN") redirect("/intern/student");
   return (
     <div className="flex flex-col min-h-screen">
@@ -38,7 +38,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
 
           <div className="shrink-0 ml-2">
-            <ProfileDropdown variant="dark" user={session.user} />
+            <ProfileDropdown variant="dark" user={user} />
           </div>
         </div>
       </header>

@@ -1,14 +1,14 @@
+import { getCurrentUser } from "@/src/lib/session";
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
 
 export default async function DashboardPage() {
-  const session = await getSession();
+  const user = await getCurrentUser();
 
-  if (!session) {
+  if (!user) {
     redirect("/intern/login");
   }
 
-  const role = session.user.role.toUpperCase();
+  const role = user.role.toUpperCase();
 
   if (role === "STUDENT") {
     redirect("/intern/student");

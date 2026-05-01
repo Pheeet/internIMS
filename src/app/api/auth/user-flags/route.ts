@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { prisma } from "@/src/lib/prisma";
+import { getCurrentUser } from "@/src/lib/session";
 
 export async function GET(request: NextRequest) {
-  const session = await getSession();
-  if (!session || !session.user) {
+  const user = await getCurrentUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
+  // Refetch only the specific flags if not already in getCurrentUser select
+  const userWithFlags = await prisma.user.findUnique({
+    where: { id: user.id },
     select: {
       is_first_login: true,
       profile_completed: true,
@@ -18,9 +19,9 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  if (!user) {
+  if (!userWithFlags) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  return NextResponse.json(user);
+  return NextResponse.json(userWithFlags);
 }
