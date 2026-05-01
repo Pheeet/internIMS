@@ -72,6 +72,23 @@ npm run dev
 
 ---
 
+## 🔑 การตั้งค่า Super Admin คนแรก (First-time Setup)
+
+เนื่องจากระบบใช้ OAuth และไม่มีฐานข้อมูลเริ่มต้น คุณต้องสร้างบัญชี Super Admin คนแรกด้วยตนเองผ่านสคริปต์:
+
+1. กำหนดอีเมลของคุณ (ที่ใช้เข้า Google/CMU) ในไฟล์ `.env.local`:
+   ```env
+   SUPER_ADMIN_EMAIL="your-email@cmu.ac.th"
+   SUPER_ADMIN_PASSWORD="กำหนดรหัสผ่านอะไรก็ได้ (ระบบสร้างเพื่อ Schema แต่จะใช้ OAuth เข้าจริง)"
+   ```
+2. รันสคริปต์สร้าง Super Admin:
+   ```bash
+   npm run create-super-admin
+   ```
+3. เข้าสู่ระบบผ่านหน้าเว็บด้วย **OAuth (Google/CMU)** โดยใช้อีเมลเดียวกับที่ระบุไว้ ระบบจะมอบสิทธิ์ Super Admin ให้ทันทีครับ
+
+---
+
 ## ⚙️ การตั้งค่า Cron Jobs
 ระบบมี Endpoint สำหรับงานอัตโนมัติ (ต้องส่ง `Bearer <CRON_SECRET>` ใน Header):
 - `GET /api/cron/cleanup-logs`: ล้าง Log ที่เก่ากว่า 10 ปี
