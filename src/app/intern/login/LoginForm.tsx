@@ -2,11 +2,9 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
-import { Eye, EyeOff, Mail, Lock, X } from "lucide-react";
+import { X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { loginAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const OAUTH_ERRORS: Record<string, string> = {
@@ -40,7 +38,7 @@ const TOS_SECTIONS = [
   },
   {
     title: "3. ระยะเวลาในการเก็บรักษาข้อมูล",
-    body: "ข้อมูลส่วนบุคคลและเอกสารของท่านจะถูกจัดเก็บไว้ในระบบอย่างปลอดภัยตลอดระยะเวลาที่ท่านมีสถานะเป็นนักศึกษาฝึกงาน และจะถูกเก็บรักษาไว้เป็นเวลา 1 ปีการศึกษา หลังจากเสร็จสิ้นการฝึกงาน เพื่อประโยชน์ในการอ้างอิงทางวิชาการ หลังจากนั้นข้อมูลจะถูกลบหรือทำลายตามระเบียบของทางคณะฯ",
+    body: "ข้อมูลส่วนบุคคลและเอกสารของท่านจะถูกจัดเก็บไว้ในระบบอย่างปลอดภัยตลอดระยะเวลาที่ท่านมีสถานะเป็นนักศึกษาฝึกงาน และจะถูกเก็บรักษาไว้เป็นเวลา 10 ปี หลังจากเสร็จสิ้นการฝึกงาน เพื่อประโยชน์ในการอ้างอิงและตรวจสอบย้อนหลังตามระเบียบของทางคณะฯ หลังจากนั้นข้อมูลจะถูกลบหรือทำลายตามระเบียบของทางคณะฯ",
     bullets: [],
   },
   {
@@ -70,25 +68,19 @@ const TOS_SECTIONS = [
     body: "หากมีข้อสงสัยเกี่ยวกับการใช้งานระบบ หรือนโยบายความเป็นส่วนตัว สามารถติดต่อได้ที่:",
     bullets: [
       "หน่วยงาน: หน่วยพัฒนาเทคโนโลยีสารสนเทศ คณะพยาบาลศาสตร์",
-      "อีเมล: admin.nursing@cmu.ac.th",
-      "โทรศัพท์: 053-94X-XXX",
+      "อีเมล: nupong.pr@cmu.ac.th",
     ],
   },
 ];
 
 export default function LoginForm({ initialErrorKey = "" }: { initialErrorKey?: string }) {
   // Login form state
-  const [showPassword, setShowPassword] = useState(false);
   const [isTermsAccepted, setIsTermsAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [pendingAuthAction, setPendingAuthAction] = useState<(() => void) | null>(null);
   const [loginError, setLoginError] = useState("");
   const [tosScrolledToBottom, setTosScrolledToBottom] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [failedAttempts, setFailedAttempts] = useState(0);
 
   const tosContentRef = useRef<HTMLDivElement>(null);
 
@@ -104,7 +96,7 @@ export default function LoginForm({ initialErrorKey = "" }: { initialErrorKey?: 
         window.history.replaceState(null, "", "/intern/login");
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleTosScroll = useCallback(() => {
@@ -126,29 +118,6 @@ export default function LoginForm({ initialErrorKey = "" }: { initialErrorKey?: 
     setShowTermsModal(false);
     setPendingAuthAction(null);
     setLoginError("กรุณายอมรับข้อกำหนดการใช้งานก่อนเข้าสู่ระบบ");
-  };
-
-  const submitLogin = async () => {
-    setIsLoading(true);
-    setError("");
-    const formData = new FormData();
-    formData.append("email", email);
-    formData.append("password", password);
-    const result = await loginAction(formData);
-    if (result?.error) {
-      setFailedAttempts((prev) => prev + 1);
-      setError(result.error);
-      setIsLoading(false);
-    }
-  };
-
-  const handleLogin = async (skipTermsCheck = false) => {
-    if (!skipTermsCheck && !isTermsAccepted) {
-      setShowTermsModal(true);
-      return;
-    }
-    setLoginError("");
-    await submitLogin();
   };
 
   const handleGoogleLogin = () => {
@@ -182,79 +151,44 @@ export default function LoginForm({ initialErrorKey = "" }: { initialErrorKey?: 
     if (pendingAuthAction) {
       pendingAuthAction();
       setPendingAuthAction(null);
-      return;
     }
-    await handleLogin();
   };
 
   return (
     <>
-      <main className="relative min-h-screen w-full overflow-hidden flex items-center justify-center px-4 py-10 bg-[#fdf6f0]">
+      <main className="relative min-h-screen w-full overflow-hidden flex items-center justify-center px-4 py-10 bg-[linear-gradient(135deg,_#fff5ee_0%,_#fde8d8_40%,_#fef3ec_100%)]">
         {/* Card */}
         <section aria-labelledby="login-title" className="relative w-full max-w-md animate-fade-up">
-          <div className="gradient-card backdrop-blur-xl border border-white/60 rounded-3xl shadow-card px-8 py-10 sm:px-10">
+          <div className="gradient-card backdrop-blur-xl border border-white/60 rounded-3xl shadow-card px-6 py-8 sm:px-10 sm:py-10">
             {/* Logo */}
             <div className="flex flex-col items-center text-center">
-              <div className="relative mb-5">
+              <div className="relative mb-4 sm:mb-5">
                 <div className="relative w-[66px] h-[66px] overflow-hidden flex-shrink-0" style={{ clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)" }}>
                   <Image src="/logo.png" alt="IMS Logo" width={66} height={66} className="w-full h-full object-cover" priority />
                 </div>
               </div>
-              <h1 id="login-title" className="text-2xl sm:text-[1.65rem] font-bold tracking-tight text-gray-900">Internship Management System</h1>
+              <h1 id="login-title" className="text-2xl sm:text-[1.65rem] font-bold tracking-tight text-gray-900 leading-tight">Internship Management System</h1>
               <p className="mt-1.5 text-sm text-muted-foreground">เข้าสู่ระบบด้วยบัญชีของคุณ</p>
             </div>
 
-            {/* Main Login Form */}
-            <div className="mt-8">
-              <form onSubmit={async (e) => { e.preventDefault(); await handleLogin(); }} className="space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email Address</Label>
-                  <div className="relative group">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-muted-foreground transition-smooth group-focus-within:text-primary pointer-events-none" />
-                    <Input id="email" type="email" name="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="yourname@cmu.ac.th" autoComplete="email" inputMode="email" className="h-12 pl-11 pr-4 rounded-xl bg-secondary/40 border-border/70 focus-visible:ring-2 focus-visible:border-primary transition-smooth text-gray-900" />
-                  </div>
+            {/* OAuth Login Options */}
+            <div className="mt-8 space-y-6">
+              {error && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 px-4 py-3 rounded-xl flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                    {error}
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-sm font-medium text-gray-700">Password</Label>
-                  <div className="relative group">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-muted-foreground transition-smooth group-focus-within:text-primary pointer-events-none" />
-                    <Input id="password" type={showPassword ? "text" : "password"} name="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" className="h-12 pl-11 pr-11 rounded-xl bg-secondary/40 border-border/70 focus-visible:ring-2 focus-visible:border-primary transition-smooth text-gray-900" />
-                    <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"} className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted-foreground hover:text-foreground transition-smooth">
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                </div>
-
-                {failedAttempts >= 5 && (
-                  <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-lg px-3.5 py-3">
-                    <div className="p-2 bg-red-500 rounded-lg text-white shrink-0"><Lock size={16} /></div>
-                    <div>
-                      <p className="text-sm font-bold text-red-900">บัญชีถูกล็อคชั่วคราว</p>
-                      <p className="text-sm text-red-700">กรุณาติดต่อ Admin เพื่อปลดล็อคการใช้งาน</p>
-                    </div>
-                  </div>
-                )}
-
-                {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg">{error}</p>}
-
-                <Button type="button" size="lg" onClick={() => { void handleLogin(); }} disabled={isLoading || failedAttempts >= 5} className="w-full h-12 rounded-xl text-base font-semibold gradient-primary text-white border-0 shadow-glow hover:-translate-y-0.5 active:translate-y-0 transition-smooth disabled:opacity-50 disabled:cursor-not-allowed">
-                  {isLoading ? <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "เข้าสู่ระบบ"}
-                </Button>
-                {loginError && <p className="text-red-500 text-sm mt-2 text-center">{loginError}</p>}
-              </form>
-
-              <div className="relative py-4">
-                <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border/70" /></div>
-                <div className="relative flex justify-center"><span className="bg-card px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">หรือ</span></div>
-              </div>
+              )}
 
               <div className="space-y-3">
                 <button type="button" onClick={handleGoogleLogin} className="w-full h-12 inline-flex items-center justify-center gap-3 rounded-xl border border-border/80 bg-card hover:bg-secondary/60 hover:-translate-y-0.5 transition-smooth shadow-soft text-sm font-semibold text-gray-800">
-                  <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.658 14.013 17.64 11.706 17.64 9.2z" fill="#4285F4" /><path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853" /><path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05" /><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335" /></svg>
+                  <svg width="22" height="22" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.658 14.013 17.64 11.706 17.64 9.2z" fill="#4285F4" /><path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853" /><path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05" /><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335" /></svg>
                   Login with Google Account
                 </button>
                 <button type="button" onClick={handleCMULogin} className="w-full h-12 inline-flex items-center justify-center gap-3 rounded-xl border border-border/80 bg-card hover:bg-secondary/60 hover:-translate-y-0.5 transition-smooth shadow-soft text-sm font-semibold text-gray-800">
-                  <Image src="/CMU SUB-LOGO-01.png" alt="CMU Logo" width={24} height={24} className="object-contain" />
+                  <Image src="/CMU SUB-LOGO-01.png" alt="CMU Logo" width={32} height={32} className="object-contain" />
                   Login with CMU Account
                 </button>
               </div>

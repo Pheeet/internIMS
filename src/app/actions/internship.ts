@@ -140,8 +140,15 @@ export async function submitInternshipApplication(
     if (profilePicture.size > 5 * 1024 * 1024) {
       fields.profilePicture = ["กรุณาอัปโหลดรูปภาพขนาดไม่เกิน 5 MB"];
     }
-  } else if (!existing?.student?.studentProfile?.profilePictureUrl) {
-    fields.profilePicture = ["กรุณาอัปโหลดรูปโปรไฟล์"];
+  } else {
+    // Check if user already has a profile picture in their profile record
+    const userProfile = await prisma.studentProfile.findUnique({
+      where: { userId },
+      select: { profilePictureUrl: true }
+    });
+    if (!userProfile?.profilePictureUrl) {
+      fields.profilePicture = ["กรุณาอัปโหลดรูปโปรไฟล์"];
+    }
   }
 
   // Attachments Validation

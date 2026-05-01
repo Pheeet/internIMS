@@ -76,8 +76,8 @@ export async function POST(req: Request) {
     }
 
     const { email, password, prefix, firstNameTh, lastNameTh } = await req.json();
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
+    if (!email) {
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -85,7 +85,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email already exists" }, { status: 400 });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    let passwordHash: string | null = null;
+    if (password) {
+      passwordHash = await bcrypt.hash(password, 10);
+    }
 
     const user = await prisma.user.create({
       data: {

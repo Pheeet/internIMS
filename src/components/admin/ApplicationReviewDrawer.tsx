@@ -446,23 +446,8 @@ export default function ApplicationReviewDrawer({
       });
       setFileReviews(initial);
 
-      // 3. Tab logic — force Step 1 for EDIT_REQUESTED, APPROVED, and COMPLETED, otherwise normal logic
-      if (
-        internship.status === "EDIT_REQUESTED" ||
-        internship.status === "APPROVED" ||
-        internship.status === "COMPLETED"
-      ) {
-        setActiveTab("info");
-      } else {
-        const hasReviewedFiles = (internship.attachments || []).some(
-          (f) => f.status === "APPROVED" || f.status === "REJECTED"
-        );
-        if (hasReviewedFiles && (internship.attachments || []).length > 0) {
-          setActiveTab(internship.attachments![0].id);
-        } else {
-          setActiveTab("info");
-        }
-      }
+      // 3. Tab logic — always start at Step 1 (Personal Info)
+      setActiveTab("info");
     } else if (!isOpen) {
       setFileReviews({});
       setRejectionReasons({});
@@ -773,9 +758,35 @@ export default function ApplicationReviewDrawer({
     }
 
     // Prepare meaningful remarks summary
+    const FIELD_LABELS: Record<string, string> = {
+      prefix: "คำนำหน้า",
+      firstNameTh: "ชื่อ",
+      lastNameTh: "นามสกุล",
+      gender: "เพศ",
+      dob: "วันเกิด",
+      phoneNumber: "เบอร์โทรศัพท์",
+      contactAddress: "ที่อยู่",
+      emergencyPhone: "เบอร์โทรศัพท์ผู้ปกครอง",
+      guardianName: "ชื่อผู้ปกครอง",
+      guardianRelationship: "ความสัมพันธ์",
+      educationLevel: "ระดับการศึกษา",
+      institution: "สถาบัน",
+      faculty: "คณะ",
+      major: "สาขา",
+      advisorName: "อาจารย์ที่ปรึกษา",
+      advisorPhone: "เบอร์อาจารย์",
+      position: "ตำแหน่ง",
+      department: "หน่วยงาน",
+      company: "บริษัท",
+      startDate: "วันเริ่มฝึกงาน",
+      endDate: "วันสิ้นสุดฝึกงาน",
+      supervisorName: "ผู้ดูแล",
+      remarks: "หมายเหตุ"
+    };
+
     const personalFeedback = Object.entries(rejectionReasons)
       .filter(([, v]) => v.flagged)
-      .map(([field, v]) => `${field}: ${v.reason}`);
+      .map(([field, v]) => `${FIELD_LABELS[field] || field}: ${v.reason}`);
 
     const docFeedback = Object.entries(fileReviews)
       .filter(([, v]) => v.status === "REJECTED")
@@ -996,36 +1007,50 @@ export default function ApplicationReviewDrawer({
                         supervisorName: "ผู้ดูแล", startDate: "วันเริ่มฝึกงาน", endDate: "วันสิ้นสุดฝึกงาน",
                         remarks: "หมายเหตุ",
                       };
-                      const currentValues: Record<string, string | null | undefined> = {
-                        // Personal info
+                      const isChangedLocal = (snapshot: any, key: string, current: any) => {
+                        if (!snapshot) return false;
+                        let prev = snapshot[key] ?? null;
+                        let cur = current ?? null;
+
+                        // Normalize dates for comparison
+                        if (prev && (key === 'dob' || key === 'startDate' || key === 'endDate')) {
+                          try { prev = new Date(prev).toISOString().split('T')[0]; } catch { }
+                        }
+                        if (cur && (key === 'dob' || key === 'startDate' || key === 'endDate')) {
+                          try { cur = new Date(cur).toISOString().split('T')[0]; } catch { }
+                        }
+
+                        return String(prev ?? '') !== String(cur ?? '');
+                      };
+
+                      const currentValues: Record<string, any> = {
                         prefix: profile?.prefix,
                         firstNameTh: profile?.firstNameTh,
                         lastNameTh: profile?.lastNameTh,
                         gender: profile?.gender,
-                        dob: profile?.dob ? new Date(profile.dob).toISOString() : null,
+                        dob: profile?.dob,
                         phoneNumber: profile?.phoneNumber,
                         emergencyPhone: profile?.emergencyPhone,
                         contactAddress: profile?.contactAddress,
                         guardianName: profile?.guardianName,
                         guardianRelationship: profile?.guardianRelationship,
-                        // Education info
                         educationLevel: profile?.educationLevel,
                         institution: profile?.institution,
                         faculty: profile?.faculty,
                         major: profile?.major,
                         advisorName: profile?.advisorName,
                         advisorPhone: profile?.advisorPhone,
-                        // Internship info
                         position: internship!.position,
                         department: internship!.department,
                         company: internship!.company,
                         supervisorName: internship!.supervisorName,
-                        startDate: internship!.startDate ? new Date(internship!.startDate).toISOString() : null,
-                        endDate: internship!.endDate ? new Date(internship!.endDate).toISOString() : null,
+                        startDate: internship!.startDate,
+                        endDate: internship!.endDate,
                         remarks: internship!.remarks,
                       };
+
                       const changedFields = Object.keys(fieldLabels).filter((k) =>
-                        isChanged(snapshot, k, currentValues[k])
+                        isChangedLocal(snapshot, k, currentValues[k])
                       );
                       
                       const hasPending = files.some(f => (fileReviews[f.id]?.status ?? f.status) === "PENDING");
@@ -1655,22 +1680,14 @@ export default function ApplicationReviewDrawer({
                   <div className="flex items-center justify-end gap-3">
                     <button
                       type="button"
-                      onClick={handleSendBack}
-                      disabled={isPending || !hasRejectionReasons}
-                      className="px-6 py-2.5 rounded-xl border border-red-400 text-red-500 text-sm font-black bg-transparent hover:bg-red-50 transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      ส่งกลับแก้ไข
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => {
                         if (files.length > 0) setActiveTab(files[0].id);
                         else setActiveTab("docs-empty");
                       }}
-                      disabled={isPending || hasRejectionReasons}
+                      disabled={isPending}
                       className="px-6 py-2.5 rounded-xl bg-[#534AB7] text-white text-sm font-black hover:bg-[#4840a3] transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      ยืนยันข้อมูล
+                      ขั้นตอนต่อไป
                     </button>
                   </div>
                 ) : (

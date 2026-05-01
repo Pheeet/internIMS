@@ -91,9 +91,13 @@ export default function ProfileForm({ initialData, email, isLocked = false }: Pr
     if (
       !prefix || !firstNameThVal || !lastNameThVal || !gender || !dob ||
       !phoneNumberVal || !emergencyPhoneVal || !contactAddressVal ||
-      !guardianNameVal || !guardianRelationship
+      !guardianNameVal || !guardianRelationship || !profileImage
     ) {
-      toast.error("กรุณากรอกข้อมูลให้ครบ");
+      if (!profileImage) {
+        toast.error("กรุณาอัปโหลดรูปถ่ายชุดนักศึกษา");
+      } else {
+        toast.error("กรุณากรอกข้อมูลให้ครบ");
+      }
       return;
     }
 
@@ -272,7 +276,7 @@ export default function ProfileForm({ initialData, email, isLocked = false }: Pr
                   <input
                     type="text"
                     name="firstNameTh"
-                    defaultValue={initialData?.firstNameTh || ""}
+                    defaultValue={initialData?.firstNameTh === "Firstname" ? "" : (initialData?.firstNameTh || "")}
                     placeholder="กรอกชื่อจริง"
                     className={`w-full rounded-md border bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:ring-1 placeholder-gray-400 disabled:bg-gray-50 disabled:cursor-not-allowed ${fieldErrors.firstNameTh ? "border-red-500 focus:border-red-500 focus:ring-red-500" : "border-gray-200 focus:border-[#F26522] focus:ring-[#F26522]"}`}
                     disabled={isLocked}
@@ -287,7 +291,7 @@ export default function ProfileForm({ initialData, email, isLocked = false }: Pr
                   <input
                     type="text"
                     name="lastNameTh"
-                    defaultValue={initialData?.lastNameTh || ""}
+                    defaultValue={initialData?.lastNameTh === "Lastname" ? "" : (initialData?.lastNameTh || "")}
                     placeholder="กรอกนามสกุล"
                     className={`w-full rounded-md border bg-white px-4 py-2.5 text-sm text-gray-900 outline-none focus:ring-1 placeholder-gray-400 disabled:bg-gray-50 disabled:cursor-not-allowed ${fieldErrors.lastNameTh ? "border-red-500 focus:border-red-500 focus:ring-red-500" : "border-gray-200 focus:border-[#F26522] focus:ring-[#F26522]"}`}
                     disabled={isLocked}

@@ -105,12 +105,7 @@ export default function AdminManagementClient({ currentUserEmail, userRole = "AD
 
   const [searchQuery, setSearchQuery] = useState("");
   const [studentEmail, setStudentEmail] = useState("");
-  const [studentFirstName, setStudentFirstName] = useState("");
-  const [studentLastName, setStudentLastName] = useState("");
-  
   const [newAdminEmail, setNewAdminEmail] = useState("");
-  const [newAdminFirstName, setNewAdminFirstName] = useState("");
-  const [newAdminLastName, setNewAdminLastName] = useState("");
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const handleTabChange = (value: string) => {
@@ -184,15 +179,9 @@ export default function AdminManagementClient({ currentUserEmail, userRole = "AD
 
   const handleAddAdmin = async () => {
     const email = newAdminEmail.trim().toLowerCase();
-    const firstNameTh = newAdminFirstName.trim();
-    const lastNameTh = newAdminLastName.trim();
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       toast.error("อีเมลไม่ถูกต้อง", { description: "กรุณากรอกอีเมลให้ถูกต้อง" });
-      return;
-    }
-    if (!firstNameTh || !lastNameTh) {
-      toast.error("กรุณากรอกชื่อและนามสกุล");
       return;
     }
     if (admins.some((a) => a.email.toLowerCase() === email)) {
@@ -204,7 +193,11 @@ export default function AdminManagementClient({ currentUserEmail, userRole = "AD
       const res = await fetch("/api/admin/management/admins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, firstNameTh, lastNameTh })
+        body: JSON.stringify({ 
+          email, 
+          firstNameTh: "Firstname", 
+          lastNameTh: "Lastname" 
+        })
       });
       if (!res.ok) {
         const err = await res.json();
@@ -212,8 +205,6 @@ export default function AdminManagementClient({ currentUserEmail, userRole = "AD
       }
       toast.success("เพิ่ม Admin สำเร็จ");
       setNewAdminEmail("");
-      setNewAdminFirstName("");
-      setNewAdminLastName("");
       fetchAdmins();
     } catch (err: any) {
       toast.error("เพิ่ม Admin ไม่สำเร็จ", { description: err.message });
@@ -222,15 +213,9 @@ export default function AdminManagementClient({ currentUserEmail, userRole = "AD
 
   const handleAddStudent = async () => {
     const email = studentEmail.trim().toLowerCase();
-    const firstNameTh = studentFirstName.trim();
-    const lastNameTh = studentLastName.trim();
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       toast.error("อีเมลไม่ถูกต้อง", { description: "กรุณากรอกอีเมลให้ถูกต้อง" });
-      return;
-    }
-    if (!firstNameTh || !lastNameTh) {
-      toast.error("กรุณากรอกชื่อและนามสกุล");
       return;
     }
     if (students.some((s) => s.email === email)) {
@@ -238,14 +223,19 @@ export default function AdminManagementClient({ currentUserEmail, userRole = "AD
       return;
     }
     
-    const password = "1234";
-    const fullName = `${firstNameTh} ${lastNameTh}`;
+    const firstNameTh = "Firstname";
+    const lastNameTh = "Lastname";
     
     try {
       const res = await fetch("/api/admin/management/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, prefix: "นาย", firstNameTh, lastNameTh })
+        body: JSON.stringify({ 
+          email, 
+          prefix: "นาย", 
+          firstNameTh, 
+          lastNameTh 
+        })
       });
       if (!res.ok) {
         const err = await res.json();
@@ -253,14 +243,18 @@ export default function AdminManagementClient({ currentUserEmail, userRole = "AD
       }
       
       const data = await res.json();
-      const initials = `${firstNameTh[0]}${lastNameTh[0]}`;
       const addedAt = new Date(data.user.createdAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" });
       
-      setStudents((prev) => [{ id: data.user.id, name: fullName, initials, email, password, addedAt, addedByName: "ระบบ" }, ...prev]);
+      setStudents((prev) => [{ 
+        id: data.user.id, 
+        name: "Firstname Lastname", 
+        initials: "FL", 
+        email, 
+        addedAt, 
+        addedByName: "ระบบ" 
+      }, ...prev]);
       setStudentEmail("");
-      setStudentFirstName("");
-      setStudentLastName("");
-      toast.success("เพิ่ม Student สำเร็จ", { description: "รหัสผ่านเริ่มต้นคือ 1234" });
+      toast.success("เพิ่ม Student สำเร็จ", { description: "นักศึกษาสามารถเข้าสู่ระบบผ่าน CMU IT Account ได้ทันที" });
     } catch (err: any) {
       toast.error("เพิ่ม Student ไม่สำเร็จ", { description: err.message });
     }
@@ -325,16 +319,10 @@ export default function AdminManagementClient({ currentUserEmail, userRole = "AD
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="animate-fade-up delay-0 flex items-center justify-between gap-4 flex-wrap mb-8">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#9E76B4] text-white shrink-0">
-              <Shield className="h-6 w-6" />
-            </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">Account Management</h1>
-                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-transparent gap-1.5 select-none">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Real-time
-                </Badge>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">ระบบจัดการบัญชีผู้ใช้</h1>
+
               </div>
               <p className="text-sm text-gray-500 mt-0.5">จัดการสิทธิ์ผู้ดูแลระบบและบัญชีนักศึกษา</p>
             </div>
@@ -379,39 +367,23 @@ export default function AdminManagementClient({ currentUserEmail, userRole = "AD
         {isSuperAdmin && (
         <TabsContent value="admin" className="space-y-5 mt-0">
           {/* Add Admin Card */}
-          <div className="animate-fade-up delay-100 bg-white rounded-2xl border border-gray-100 shadow-md p-6 flex flex-col gap-5 transition-all duration-300 hover:shadow-lg">
+          <div className="animate-fade-up delay-100 bg-white rounded-2xl border border-gray-100 shadow-md p-6 flex flex-col gap-4 transition-all duration-300 hover:shadow-lg">
             <div className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-[#9E76B4]" />
               <h2 className="font-semibold text-slate-800">เพิ่ม Admin ใหม่</h2>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="relative">
-                <Input
-                  value={newAdminFirstName}
-                  onChange={(e) => setNewAdminFirstName(e.target.value)}
-                  placeholder="ชื่อจริง (ภาษาไทย)"
-                  className="h-12 rounded-xl border-gray-200 text-gray-900 placeholder:text-gray-400"
-                />
-              </div>
-              <div className="relative">
-                <Input
-                  value={newAdminLastName}
-                  onChange={(e) => setNewAdminLastName(e.target.value)}
-                  placeholder="นามสกุล (ภาษาไทย)"
-                  className="h-12 rounded-xl border-gray-200 text-gray-900 placeholder:text-gray-400"
-                />
-              </div>
-              <div className="relative">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   type="email"
                   value={newAdminEmail}
                   onChange={(e) => setNewAdminEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddAdmin()}
                   placeholder="admin@cmu.ac.th"
-                  className="h-12 rounded-xl border-gray-200 text-gray-900 placeholder:text-gray-400"
+                  className="pl-10 h-12 rounded-xl border-gray-200 text-gray-900 placeholder:text-gray-400"
                 />
               </div>
-            </div>
-            <div className="flex justify-end">
               <Button
                 onClick={handleAddAdmin}
                 className="h-12 w-full sm:w-44 rounded-xl gap-2 bg-[#9E76B4] hover:bg-[#8A5FA0] text-white transition-all duration-300 active:scale-95"
@@ -494,50 +466,34 @@ export default function AdminManagementClient({ currentUserEmail, userRole = "AD
         {/* ── STUDENT TAB ────────────────────────────────────────────────── */}
         <TabsContent value="student" className="space-y-5 mt-0">
           {/* Add Student Card */}
-          <div className="animate-fade-up delay-100 bg-white rounded-2xl border border-gray-100 shadow-md p-6 flex flex-col gap-5 transition-all duration-300 hover:shadow-lg">
+          <div className="animate-fade-up delay-100 bg-white rounded-2xl border border-gray-100 shadow-md p-6 flex flex-col gap-4 transition-all duration-300 hover:shadow-lg">
             <div className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-[#9E76B4]" />
               <h2 className="font-semibold text-slate-800">เพิ่ม Student ใหม่</h2>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="relative">
-                <Input
-                  value={studentFirstName}
-                  onChange={(e) => setStudentFirstName(e.target.value)}
-                  placeholder="ชื่อจริง (ภาษาไทย)"
-                  className="h-12 rounded-xl border-gray-200 text-gray-900 placeholder:text-gray-400"
-                />
-              </div>
-              <div className="relative">
-                <Input
-                  value={studentLastName}
-                  onChange={(e) => setStudentLastName(e.target.value)}
-                  placeholder="นามสกุล (ภาษาไทย)"
-                  className="h-12 rounded-xl border-gray-200 text-gray-900 placeholder:text-gray-400"
-                />
-              </div>
-              <div className="relative">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   type="email"
                   value={studentEmail}
                   onChange={(e) => setStudentEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddStudent()}
                   placeholder="student@cmu.ac.th"
-                  className="h-12 rounded-xl border-gray-200 text-gray-900 placeholder:text-gray-400"
+                  className="pl-10 h-12 rounded-xl border-gray-200 text-gray-900 placeholder:text-gray-400"
                 />
               </div>
-            </div>
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-              <p className="text-xs text-gray-400 order-2 sm:order-1">
-                รหัสผ่านเริ่มต้นสำหรับบัญชีใหม่คือ <span className="font-semibold text-[#9E76B4]">1234</span>
-              </p>
               <Button
                 onClick={handleAddStudent}
-                className="h-12 w-full sm:w-44 rounded-xl gap-2 bg-[#9E76B4] hover:bg-[#8A5FA0] text-white transition-all duration-300 active:scale-95 order-1 sm:order-2"
+                className="h-12 w-full sm:w-44 rounded-xl gap-2 bg-[#9E76B4] hover:bg-[#8A5FA0] text-white transition-all duration-300 active:scale-95"
               >
                 <UserPlus className="h-4 w-4" />
                 Add Student
               </Button>
             </div>
+            <p className="text-[11px] text-gray-400 mt-2 px-1">
+              เพิ่มรายชื่อนักศึกษาเพื่อให้สิทธิ์การเข้าใช้งานผ่านระบบ CMU IT Account
+            </p>
           </div>
 
           {/* Student List Card */}

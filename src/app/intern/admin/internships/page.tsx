@@ -1,7 +1,12 @@
 import InternshipsClient from "./InternshipsClient";
 import { prisma } from "@/lib/prisma";
 
-export default async function AdminInternshipsPage() {
+export default async function AdminInternshipsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
+  const { status: defaultStatus } = await searchParams;
   const internships = await prisma.internship.findMany({
     orderBy: { createdAt: "desc" },
     select: {
@@ -97,7 +102,7 @@ export default async function AdminInternshipsPage() {
 
   return (
     <div className="w-full h-full bg-[#f8f9fa] min-h-[90vh]">
-      <InternshipsClient applications={applications} />
+      <InternshipsClient applications={applications} defaultStatus={defaultStatus} />
     </div>
   );
 }

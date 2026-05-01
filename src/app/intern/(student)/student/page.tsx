@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/th";
@@ -168,6 +169,8 @@ export default function StudentDashboardPage() {
   };
   const recentActivities = dashboard?.recentActivities ?? [];
 
+  const router = useRouter();
+
   async function loadDashboard() {
     try {
       const response = await fetch("/api/student/dashboard", { cache: "no-store" });
@@ -178,6 +181,22 @@ export default function StudentDashboardPage() {
 
       const data = (await response.json()) as StudentDashboardResponse;
       setDashboard(data);
+
+      // --- Forced Flow Redirection ---
+      const p = data.profile;
+      const isIncompleteProfile = !p?.firstName || p.firstName === "ไม่ระบุ" || p.firstName === "Firstname";
+      
+      if (isIncompleteProfile) {
+        router.push("/intern/student/profile");
+        return;
+      }
+
+      if (!p.internship) {
+        router.push("/intern/student/internship-form");
+        return;
+      }
+      // -------------------------------
+
     } catch {
       setDashboard(null);
     } finally {
@@ -223,14 +242,27 @@ export default function StudentDashboardPage() {
 
   let totalDays = 90, daysCompleted = 0, progressPercent = 0;
   if (!isDocumentPhase && profile?.internship?.startDate && profile?.internship?.endDate) {
-    const start = new Date(profile.internship.startDate);
-    const end = new Date(profile.internship.endDate);
-    const now = new Date();
-    totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    daysCompleted = Math.ceil((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysCompleted < 0) daysCompleted = 0;
+    const startD = dayjs(profile.internship.startDate).startOf('day');
+    const endD = dayjs(profile.internship.endDate).startOf('day');
+    const nowD = dayjs().startOf('day');
+
+    // Total days: end - start + 1 (to be inclusive)
+    totalDays = endD.diff(startD, 'day') + 1;
+    
+    // Days completed: if today is start date, it's day 1
+    if (nowD.isBefore(startD)) {
+      daysCompleted = 0;
+    } else {
+      daysCompleted = nowD.diff(startD, 'day') + 1;
+    }
+
     if (daysCompleted > totalDays) daysCompleted = totalDays;
-    progressPercent = Math.round((daysCompleted / totalDays) * 100);
+    progressPercent = totalDays > 0 ? Math.round((daysCompleted / totalDays) * 100) : 0;
+  }
+
+  // Force 100% if already completed
+  if (isCompleted) {
+    progressPercent = 100;
   }
 
   const isProfileComplete = profile?.firstName && profile?.firstName !== "ไม่ระบุ";
@@ -241,8 +273,8 @@ export default function StudentDashboardPage() {
 
   const fieldMap: Record<string, string> = {
     prefix: "คำนำหน้า",
-    firstNameTh: "ชื่อ (ภาษาไทย)",
-    lastNameTh: "นามสกุล (ภาษาไทย)",
+    firstNameTh: "ชื่อ",
+    lastNameTh: "นามสกุล",
     gender: "เพศ",
     dob: "วันเกิด",
     phoneNumber: "เบอร์โทรศัพท์",
@@ -289,14 +321,14 @@ export default function StudentDashboardPage() {
       <div className="max-w-6xl mx-auto py-8 px-4 flex flex-col gap-6 font-sans">
 
         {/* Hero */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex flex-col gap-8 animate-fade-up delay-0">
-          <div className="flex justify-between items-start">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-8 flex flex-col gap-6 md:gap-8 animate-fade-up delay-0">
+          <div className="flex flex-col md:flex-row justify-between items-start gap-6 md:gap-0">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">ยินดีต้อนรับกลับมา {profile.firstName || "นักศึกษา"}</h1>
-              <p className="text-sm text-gray-500 mt-2">นี่คือสถานะล่าสุดของความคืบหน้าการฝึกงานของคุณ</p>
+              <h1 className="text-xl md:text-3xl font-bold text-gray-900 leading-tight">ยินดีต้อนรับกลับมา {profile.firstName || "นักศึกษา"}</h1>
+              <p className="text-xs md:text-sm text-gray-500 mt-2">นี่คือสถานะล่าสุดของความคืบหน้าการฝึกงานของคุณ</p>
             </div>
-            <Link href="/intern/student/internship-form" className="px-6 py-3 bg-gradient-to-r from-[#FF9B5C] to-[#F16422] text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:brightness-95 flex items-center gap-2 transition-all duration-150 active:scale-[0.97]">
-              <FileText className="w-5 h-5" /> กดเพื่อดูแบบฟอร์มการฝึกงาน
+            <Link href="/intern/student/internship-form" className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-[#FF9B5C] to-[#F16422] text-white text-sm md:text-base font-semibold rounded-xl shadow-md hover:shadow-lg hover:brightness-95 flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97]">
+              <FileText className="w-5 h-5" /> ดูแบบฟอร์มการฝึกงาน
             </Link>
           </div>
 
@@ -306,41 +338,41 @@ export default function StudentDashboardPage() {
               <p className="text-sm text-gray-500">กำลังโหลดข้อมูลจากระบบ...</p>
             </div>
           ) : isDocumentPhase ? (
-            <div className="mt-4 flex flex-col items-center max-w-4xl mx-auto w-full px-12">
-              <div className="relative flex justify-between w-full z-10 text-center">
-                <div className="absolute top-6 left-10 right-10 h-[2px] bg-gray-200 -z-10" />
+            <div className="mt-4 flex flex-col items-center max-w-4xl mx-auto w-full px-0 md:px-12">
+              <div className="relative flex justify-between w-full z-10 text-center gap-2">
+                <div className="absolute top-5 md:top-6 left-5 right-5 md:left-10 md:right-10 h-[2px] bg-gray-200 -z-10" />
                 {/* Step 1 */}
-                <div className="flex flex-col items-center gap-3">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border-[3px] border-white ring-2 ${isProfileComplete ? "bg-[#10B981] ring-[#10B981]" : "bg-gray-200 ring-gray-200"} text-white`}>
-                    <CheckCircle2 className="w-6 h-6" />
+                <div className="flex flex-col items-center gap-2 md:gap-3 flex-1">
+                  <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-[3px] border-white ring-2 ${isProfileComplete ? "bg-[#10B981] ring-[#10B981]" : "bg-gray-200 ring-gray-200"} text-white`}>
+                    <CheckCircle2 className="w-5 h-5 md:w-6 md:h-6" />
                   </div>
                   <div>
-                    <p className={`font-semibold ${isProfileComplete ? "text-[#10B981]" : "text-gray-500"}`}>ความสมบูรณ์ของโปรไฟล์</p>
-                    <p className="text-sm text-gray-500">{isProfileComplete ? "เสร็จสมบูรณ์" : "รอดำเนินการ"}</p>
+                    <p className={`font-semibold text-[11px] md:text-base ${isProfileComplete ? "text-[#10B981]" : "text-gray-500"}`}>ความสมบูรณ์ของโปรไฟล์</p>
+                    <p className="text-[10px] md:text-sm text-gray-500">{isProfileComplete ? "เสร็จสมบูรณ์" : "รอดำเนินการ"}</p>
                   </div>
                 </div>
                 {/* Step 2 */}
-                <div className="flex flex-col items-center gap-3">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border-[3px] border-white ring-2 ${isRejected ? "bg-red-500 ring-red-500" : isAdminReview ? "bg-[#F59E0B] ring-[#F59E0B]" : isFinalApproval ? "bg-[#10B981] ring-[#10B981]" : "bg-gray-200 ring-gray-200"} text-white`}>
-                    {isRejected ? <AlertCircle className="w-6 h-6" /> : <Hourglass className="w-5 h-5" />}
+                <div className="flex flex-col items-center gap-2 md:gap-3 flex-1">
+                  <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-[3px] border-white ring-2 ${isRejected ? "bg-red-500 ring-red-500" : isAdminReview ? "bg-[#F59E0B] ring-[#F59E0B]" : isFinalApproval ? "bg-[#10B981] ring-[#10B981]" : "bg-gray-200 ring-gray-200"} text-white`}>
+                    {isRejected ? <AlertCircle className="w-5 h-5 md:w-6 md:h-6" /> : <Hourglass className="w-4 h-4 md:w-5 md:h-5" />}
                   </div>
                   <div>
-                    <p className={`font-semibold ${isRejected ? "text-red-500" : isAdminReview ? "text-[#F59E0B]" : isFinalApproval ? "text-[#10B981]" : "text-gray-500"}`}>
-                      {isRejected ? "ต้องดำเนินการ" : "ผู้ดูแลกำลังตรวจสอบ"}
+                    <p className={`font-semibold text-[11px] md:text-base ${isRejected ? "text-red-500" : isAdminReview ? "text-[#F59E0B]" : isFinalApproval ? "text-[#10B981]" : "text-gray-500"}`}>
+                      {isRejected ? "ต้องดำเนินการ" : "ผู้ดูแลตรวจสอบ"}
                     </p>
-                    <p className="text-sm text-gray-500 font-bold">
+                    <p className="text-[10px] md:text-sm text-gray-500 font-bold">
                       {isRejected ? "ถูกตีกลับ" : isAdminReview ? "รอตรวจสอบ" : isFinalApproval ? "อนุมัติแล้ว" : "กำลังรอ"}
                     </p>
                   </div>
                 </div>
                 {/* Step 3 */}
-                <div className="flex flex-col items-center gap-3">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border-[3px] border-white ring-2 ${isFinalApproval ? "bg-[#F26522] ring-[#F26522]" : "bg-gray-200 ring-gray-200"} text-white`}>
-                    <Lock className="w-5 h-5" />
+                <div className="flex flex-col items-center gap-2 md:gap-3 flex-1">
+                  <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-[3px] border-white ring-2 ${isFinalApproval ? "bg-[#F26522] ring-[#F26522]" : "bg-gray-200 ring-gray-200"} text-white`}>
+                    <Lock className="w-4 h-4 md:w-5 md:h-5" />
                   </div>
                   <div>
-                    <p className={`font-semibold ${isFinalApproval ? "text-[#F26522]" : "text-gray-500"}`}>อนุมัติ</p>
-                    <p className="text-sm text-gray-500">{isFinalApproval ? "ปลดล็อกแล้ว" : "ล็อกอยู่"}</p>
+                    <p className={`font-semibold text-[11px] md:text-base ${isFinalApproval ? "text-[#F26522]" : "text-gray-500"}`}>อนุมัติ</p>
+                    <p className="text-[10px] md:text-sm text-gray-500">{isFinalApproval ? "ปลดล็อกแล้ว" : "ล็อกอยู่"}</p>
                   </div>
                 </div>
               </div>
@@ -366,7 +398,7 @@ export default function StudentDashboardPage() {
 
         {/* Rejection Alert */}
         {isRejected && (
-          <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-6 flex items-start gap-4 animate-fade-up delay-100">
+          <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-5 md:p-6 flex flex-col sm:flex-row items-start gap-4 animate-fade-up delay-100">
             <div className="bg-red-500 p-2 rounded-xl text-white"><AlertCircle className="w-6 h-6" /></div>
             <div className="flex-1">
               <h3 className="text-lg font-bold text-red-700">คำร้องของคุณถูกตีกลับ (ต้องดำเนินการ)</h3>
@@ -478,6 +510,16 @@ export default function StudentDashboardPage() {
               {recentActivities.slice(0, 6).length > 0 ? recentActivities.slice(0, 6).map((act, idx: number) => {
                 const dotColorClass = toneColorDotClasses[act.toneColor || "sky"] || toneColorDotClasses.sky;
 
+                const translateDescription = (desc: string) => {
+                  let translated = desc;
+                  Object.entries(fieldMap).forEach(([key, label]) => {
+                    // Match field followed by colon (e.g., "prefix:")
+                    const regex = new RegExp(`\\b${key}:`, 'g');
+                    translated = translated.replace(regex, `${label}:`);
+                  });
+                  return translated;
+                };
+
                 return (
                   <div
                     key={act.id}
@@ -506,17 +548,17 @@ export default function StudentDashboardPage() {
                           </span>
                         </div>
                         {act.description.includes("(หมายเหตุ:") ? (
-                          <p className="text-xs text-gray-500 italic">
-                            {act.description.split("(หมายเหตุ:")[1].replace(")", "").trim()}
+                          <p className="text-xs text-gray-500">
+                            {translateDescription(act.description.split("(หมายเหตุ:")[1].replace(")", "").trim())}
                           </p>
                         ) : (
                           act.action === "RESUBMIT" && (
-                            <p className="text-xs text-gray-500 mt-1">{act.description}</p>
+                            <p className="text-xs text-gray-500 mt-1">{translateDescription(act.description)}</p>
                           )
                         )}
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-500 mt-1">{act.description}</p>
+                      <p className="text-xs text-gray-500 mt-1">{translateDescription(act.description)}</p>
                     )}
 
                     <p className="text-[11px] text-gray-400 mt-1.5 font-medium">{dayjs(act.createdAt).fromNow()}</p>

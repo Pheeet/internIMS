@@ -38,7 +38,7 @@ export default function ProfileDropdown({ variant = "light", user, profilePictur
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const displayName = savedName ?? overrideName ?? user.name;
+  const displayName = (savedName ?? overrideName ?? user.name)?.split(" ")[0];
   const displayEmail = user.email;
   const role = user.role.toLowerCase();
   const displayRole = role === "admin" || role === "super_admin" ? "ผู้ดูแลระบบ" : "นักศึกษา";
@@ -53,8 +53,8 @@ export default function ProfileDropdown({ variant = "light", user, profilePictur
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-4 focus:outline-none transition-opacity hover:opacity-90"
       >
-        <div className="flex flex-col items-end">
-          <span suppressHydrationWarning className={`text-base font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+        <div className="hidden sm:flex flex-col items-end min-w-0">
+          <span suppressHydrationWarning className={`text-base font-bold truncate max-w-[150px] ${isDark ? "text-white" : "text-gray-900"}`}>
             {hasMounted ? displayName : ""}
           </span>
           <span suppressHydrationWarning className={`text-xs font-bold tracking-wide ${isDark ? "text-white/80" : "text-[#E84E1B]"}`}>

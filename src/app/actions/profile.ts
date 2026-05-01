@@ -67,6 +67,15 @@ export async function saveProfileInfo(_prevState: unknown, formData: FormData) {
     if (profilePhoto.size > 5 * 1024 * 1024) {
       fields.profilePhoto = ["กรุณาอัปโหลดรูปภาพขนาดไม่เกิน 5 MB"];
     }
+  } else {
+    // Check if user already has a profile picture
+    const currentProfile = await prisma.studentProfile.findUnique({
+      where: { userId },
+      select: { profilePictureUrl: true }
+    });
+    if (!currentProfile?.profilePictureUrl) {
+      fields.profilePhoto = ["กรุณาอัปโหลดรูปถ่ายชุดนักศึกษา"];
+    }
   }
 
   if (Object.keys(fields).length > 0) {
@@ -98,6 +107,40 @@ export async function saveProfileInfo(_prevState: unknown, formData: FormData) {
   };
 
   try {
+    // 3. Logic for handling APPROVED -> EDIT_REQUESTED transition
+    // Find if there's an APPROVED internship that needs to be moved to EDIT_REQUESTED
+    const approvedInternship = await prisma.internship.findFirst({
+      where: {
+        studentId: userId,
+        status: "APPROVED",
+      },
+      include: { student: { include: { studentProfile: true } } }
+    });
+
+    if (approvedInternship) {
+      // Create snapshot before updating profile
+      const currentProfile = approvedInternship.student.studentProfile;
+      const snapshot = {
+        ...currentProfile,
+        position: approvedInternship.position,
+        department: approvedInternship.department,
+        company: approvedInternship.company,
+        supervisorName: approvedInternship.supervisorName,
+        startDate: approvedInternship.startDate,
+        endDate: approvedInternship.endDate,
+        remarks: approvedInternship.remarks,
+      };
+
+      // Transition to EDIT_REQUESTED
+      await prisma.internship.update({
+        where: { id: approvedInternship.id },
+        data: {
+          status: "EDIT_REQUESTED",
+          previousSnapshot: snapshot as any,
+        },
+      });
+    }
+
     if (profilePhoto && profilePhoto.size > 0) {
       // Handle profile picture upload — save atomically
       const currentProfile = await prisma.studentProfile.findUnique({
@@ -123,15 +166,22 @@ export async function saveProfileInfo(_prevState: unknown, formData: FormData) {
         resourceType: "STUDENT_PROFILE",
         resourceId: userId,
         targetUserId: userId,
-        description: "นักศึกษาอัปเดตข้อมูลส่วนตัว",
+        description: approvedInternship 
+          ? "นักศึกษาแก้ไขข้อมูลส่วนตัว (เปลี่ยนสถานะเป็นรอตรวจสอบการแก้ไข)" 
+          : "นักศึกษาอัปเดตข้อมูลส่วนตัว",
       },
     });
+    
     await prisma.user.update({
       where: { id: userId },
       data: { profile_completed: true },
     });
 
-    return { success: true, redirectUrl: "/intern/student/internship-form" };
+    // If they already have an internship, redirect to dashboard, otherwise to internship form
+    const hasInternship = await prisma.internship.findFirst({ where: { studentId: userId } });
+    const redirectUrl = hasInternship ? "/intern/student" : "/intern/student/internship-form";
+
+    return { success: true, redirectUrl };
   } catch (error) {
     console.error("Failed to save profile:", error);
     return { success: false, error: "เกิดข้อผิดพลาดในการบันทึกข้อมูล" };

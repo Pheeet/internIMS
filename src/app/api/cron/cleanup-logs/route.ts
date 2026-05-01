@@ -11,11 +11,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2. Calculate Cutoff Date (183 days ago)
+    // 2. Calculate Cutoff Date (10 years ago)
     const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 183);
+    cutoffDate.setDate(cutoffDate.getDate() - 3650);
 
-    // 3. Delete records older than 183 days
+    // 3. Delete records older than 10 years
     const result = await prisma.auditLog.deleteMany({
       where: {
         createdAt: {
