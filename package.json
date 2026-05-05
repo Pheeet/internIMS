@@ -13,9 +13,7 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "db:seed": "prisma db seed",
-    "test:e2e": "npx playwright test",
-    "test:e2e:headed": "npx playwright test --headed"
+    "db:seed": "prisma db seed"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.10",
@@ -46,7 +44,6 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@types/bcrypt": "^5.0.2",
     "@types/node": "^20",
