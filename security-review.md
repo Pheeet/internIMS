@@ -1,6 +1,7 @@
 # รายงาน Security Review
 
 วันที่ตรวจ: 2026-05-01
+อัปเดตล่าสุด: 2026-05-05 (re-check รอบ 3)
 
 ขอบเขตที่ตรวจ:
 - โค้ดภายใต้ `src/`
@@ -34,25 +35,28 @@
 
 ด้าน dependency พบช่องโหว่จาก `npm audit` ทั้งหมด 7 รายการ แบ่งเป็น High 2 รายการ และ Moderate 5 รายการ โดยรายการที่มีแนวทางแก้ชัดที่สุดตอนนี้คือ chain ของ `bcrypt -> @mapbox/node-pre-gyp -> tar` ส่วน advisory ของ `next` และ `prisma` ยังผูกกับ upstream release ปัจจุบัน ทำให้ยังไม่มี stable upgrade path ที่ดีกว่ารุ่นที่ใช้อยู่ในวันที่ตรวจ
 
+**อัปเดต 2026-05-05:** จาก re-check รอบ 3 พบว่าแก้ไขครบทั้ง 11 รายการแล้ว รวมถึง dependency advisory ที่เพิ่ม `overrides` ใน `package.json` เพื่อบังคับ `postcss >= 8.5.10` และ `@hono/node-server >= 1.19.13` — `npm audit` ยืนยัน 0 vulnerabilities
+
 ## ตารางสรุปรายการทั้งหมด
 
 | ลำดับ | หมวด | รายการ | ระดับ | สถานะตอนนี้ | หมายเหตุ |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Source code | Session cookie ปลอมแปลงได้และเชื่อ `role`/`id` จาก cookie โดยตรง | Critical | ต้องแก้ตอนนี้ | กระทบ authz หลายจุดทั้งระบบ |
-| 2 | Source code | Google และ Microsoft OAuth ไม่มี `state` | High | ต้องแก้ตอนนี้ | เสี่ยง login CSRF / account confusion |
-| 3 | Source code | Admin server actions หลายตัวไม่มี authorization check ที่เข้มพอ | High | ต้องแก้ตอนนี้ | เป็น code path ใช้งานจริงผ่าน admin UI |
-| 4 | Source code | Archive search endpoint เช็กแค่ session ไม่เช็ก role | High | ต้องแก้ตอนนี้ | เป็น authorization bypass |
-| 5 | Source code | Helper ลบไฟล์มีความเสี่ยง path traversal | Medium | ต้องแก้ตอนนี้ | ควรปิด dangerous sink ก่อน |
-| 6 | Source code | มีการ log ข้อมูล OAuth/debug ที่ไม่ควรออก production | Medium | ต้องแก้ตอนนี้ | เสี่ยงข้อมูลรั่วผ่าน log |
-| 7 | Source code | Health-check endpoint เปิดเผยรายละเอียดฐานข้อมูล | Medium | ต้องแก้ตอนนี้ | ควรจำกัดให้ internal/monitoring เท่านั้น |
-| 8 | Source code | ไม่มี rate limiting บน login/upload/admin endpoints ที่สำคัญ | Medium | ต้องแก้ตอนนี้ | ลด brute force และ resource exhaustion |
-| 9 | Dependency | `bcrypt -> @mapbox/node-pre-gyp -> tar` | High | ต้องแก้ตอนนี้ | อัปเกรด `bcrypt` เป็น `6.0.0` ได้เลย |
-| 10 | Dependency | `next -> postcss` advisory | Moderate | ยังไม่ต้องแก้ | รอ provider/upstream ของ Next.js ออกรุ่นที่ patch |
-| 11 | Dependency | `prisma -> @hono/node-server` advisory | Moderate | ยังไม่ต้องแก้ | รอ provider/upstream ของ Prisma ออกรุ่นที่ patch |
+| 1 | Source code | Session cookie ปลอมแปลงได้และเชื่อ `role`/`id` จาก cookie โดยตรง | Critical | ✅ แก้แล้ว | เปลี่ยนเป็น iron-session (`ims_session_v2`) เก็บเฉพาะ `userId`, query DB ทุกครั้ง |
+| 2 | Source code | Google และ Microsoft OAuth ไม่มี `state` | High | ✅ แก้แล้ว | ทั้งสองเพิ่ม `randomBytes(32)` state + httpOnly cookie + validate ใน callback |
+| 3 | Source code | Admin server actions หลายตัวไม่มี authorization check ที่เข้มพอ | High | ✅ แก้แล้ว | ทุก action เรียก `requireAdminUser()` เป็นบรรทัดแรก, query DB เพื่อยืนยัน role |
+| 4 | Source code | Archive search endpoint เช็กแค่ session ไม่เช็ก role | High | ✅ แก้แล้ว | เพิ่ม `requireAdminUser()` ที่ route handler |
+| 5 | Source code | Helper ลบไฟล์มีความเสี่ยง path traversal | Medium | ✅ แก้แล้ว | ใช้ `path.resolve()` + textual containment check + symlink check |
+| 6 | Source code | มีการ log ข้อมูล OAuth/debug ที่ไม่ควรออก production | Medium | ✅ แก้แล้ว | ลบ console.log ทั้งหมดออกแล้ว รวมถึง CMU OAuth scope log ที่เหลืออยู่ |
+| 7 | Source code | Health-check endpoint เปิดเผยรายละเอียดฐานข้อมูล | Medium | ✅ แก้แล้ว | ต้องมี `x-health-token` header, timing-safe compare, production คืน status generic เท่านั้น |
+| 8 | Source code | ไม่มี rate limiting บน login/upload/admin endpoints ที่สำคัญ | Medium | ✅ แก้แล้ว | login มี per-IP + per-email (5 ครั้ง/15 นาที), reupload มี per-user (10 ครั้ง/ชั่วโมง) ใน middleware |
+| 9 | Dependency | `bcrypt -> @mapbox/node-pre-gyp -> tar` | High | ✅ แก้แล้ว | อัปเกรด `bcrypt@6.0.0` แล้ว chain นี้หายไปจาก `npm audit` |
+| 10 | Dependency | `next -> postcss` advisory | Moderate | ✅ แก้แล้ว | เพิ่ม `overrides: { "postcss": "^8.5.10" }` ใน `package.json`, `npm audit` ยืนยัน 0 vuln |
+| 11 | Dependency | `prisma -> @hono/node-server` advisory | Moderate | ✅ แก้แล้ว | เพิ่ม `overrides: { "@hono/node-server": "^1.19.13" }` ใน `package.json`, `npm audit` ยืนยัน 0 vuln |
 
 คำอธิบายสถานะ:
-- `ต้องแก้ตอนนี้` = ทีมโปรเจกต์ลงมือแก้หรือ mitigate ได้เองทันที
-- `ยังไม่ต้องแก้` = ประเด็นนี้ยังไม่มี stable fix ที่ดีกว่าจาก provider/upstream ในวันที่ตรวจ ควรเฝ้าติดตาม advisory และใช้ mitigation ชั่วคราวไปก่อน
+- `✅ แก้แล้ว` = ตรวจสอบ source code รอบ 2 ยืนยันว่าถูก remediate แล้ว
+- `⚠️ แก้บางส่วน` = แก้ส่วนใหญ่แล้ว มีจุดเล็กน้อยที่ยังเหลือ
+- `⏳ ยังไม่ต้องแก้` = ยังไม่มี stable fix จาก provider/upstream ควรเฝ้าติดตาม
 
 ## ผลจาก Full Scan รอบนี้
 
@@ -207,10 +211,12 @@
 ผลจาก `npm audit` และ `npm audit --omit=dev` เท่ากัน เนื่องจาก package ที่ถูก flag ทั้งหมดอยู่ใน `dependencies` ของโปรเจกต์
 
 สรุป:
-- Vulnerabilities รวม: 7
-- High: 2
-- Moderate: 5
+- Vulnerabilities รวม: 0 ✅
+- High: 0
+- Moderate: 0
 - Critical: 0
+
+(หลังเพิ่ม `overrides` สำหรับ `postcss` และ `@hono/node-server` ใน `package.json`)
 
 ### รายการที่ควรจัดการก่อน
 
@@ -278,3 +284,68 @@ dependency path:
 - รายงานฉบับนี้สะท้อน full scan ของ inventory ใต้ `src/` แล้ว โดยแยก app-owned, tests, generated และ vendor code ออกจากกันอย่างชัดเจน
 - รายงานนี้อิงจาก source inspection และผล `npm audit` ในวันที่ตรวจ ยังไม่ได้ทำ penetration test หรือ dynamic exploit validation
 - จุดที่ถูกจัดเป็น Medium บางรายการจะถูกยกระดับผลกระทบทันทีเมื่อรวมกับปัญหา session cookie ที่ปลอมแปลงได้
+
+---
+
+## Re-check รอบ 3 (2026-05-05)
+
+ตรวจสอบ source code และ `npm audit` ใหม่ครบทุก finding ผลสรุป:
+
+### ✅ แก้แล้ว (9 รายการ — source code)
+
+**Finding 1 — Session cookie:**
+- `src/lib/session.ts` เปลี่ยนจาก base64url encode เป็น iron-session (`sealData`/`unsealData`) พร้อม `SESSION_PASSWORD` ที่บังคับความยาว ≥ 32 ตัว
+- Cookie ชื่อใหม่ `ims_session_v2` เก็บเฉพาะ `{ userId }` ไม่มี role หรือข้อมูลที่ปลอมแปลงได้
+- `getSession()` query DB ทุกครั้งเพื่อดึง `role` และข้อมูล user จริง ไม่เชื่อค่าจาก cookie โดยตรง
+- Cookie ตั้ง `httpOnly: true`, `secure: true` ใน production, `sameSite: lax`, `maxAge: 7 days`
+
+**Finding 2 — OAuth state:**
+- `src/app/api/auth/google/route.ts` สร้าง `randomBytes(32)` เป็น state, เก็บใน httpOnly cookie อายุ 10 นาที
+- `src/app/api/auth/microsoft/route.ts` ใช้ pattern เดียวกัน
+- ทั้งสอง callback validate state กับ cookie และลบ cookie หลัง validate ผ่าน
+
+**Finding 3 — Admin server actions authorization:**
+- `src/lib/auth.ts` มี `requireAdminUser()` ที่ query DB และ verify `role === ADMIN || SUPER_ADMIN`
+- ทุก function ใน `src/app/actions/admin.ts` เรียก `await requireAdminUser()` เป็นบรรทัดแรก
+
+**Finding 4 — Archive search endpoint:**
+- `src/app/api/archive/students/search/route.ts` เรียก `await requireAdminUser()` ก่อน query ทุกครั้ง
+- error handling คืน 401/403 ที่ถูกต้องตาม error message
+
+**Finding 5 — Path traversal ใน storage:**
+- `src/lib/storage.ts` มี `getSafePath()` ที่ใช้ `path.resolve()` + textual containment check + symlink check
+- ปฏิเสธ path ที่มี `..`, `\\`, `:`, null byte หรือขึ้นต้นด้วย `/`
+
+**Finding 6 — Sensitive console.log (ส่วนใหญ่):**
+- log ที่ sensitive ถูกลบแล้ว: response body/headers ใน CMU callbacks, debug logs ใน InternshipForm, ApplicationReviewDrawer, internship actions
+- ลบ `console.log("[CMU OAuth] Initiating authorization flow with scope:", scope)` ออกจาก `src/app/api/auth/cmu/route.ts` แล้ว — Finding นี้ถือว่าแก้ครบแล้ว
+
+**Finding 7 — Health-check endpoint:**
+- `src/app/api/health/db/route.ts` ต้องมี `x-health-token` header ที่ตรงกับ `HEALTH_CHECK_TOKEN` env
+- ใช้ `crypto.timingSafeEqual()` เพื่อป้องกัน timing attack
+- ใน production คืนเพียง `{ status: "ok" | "error", timestamp }` ไม่เปิดเผย latency หรือ error detail
+
+**Finding 8 — Rate limiting:**
+- `src/app/actions/auth.ts` มี per-IP และ per-email rate limit (5 ครั้ง/15 นาที) พร้อม dummy bcrypt สำหรับ timing attack prevention
+- `middleware.ts` มี rate limit สำหรับ admin endpoints (20 req/IP/นาที) และ reupload (10 req/user/ชั่วโมง)
+
+**Finding 9 — bcrypt dependency:**
+- อัปเกรดเป็น `bcrypt@6.0.0` แล้ว (ยืนยันจาก `npm list bcrypt`)
+- `npm audit` ยืนยัน chain `@mapbox/node-pre-gyp -> tar` หายไปแล้ว
+- High vulnerabilities เหลือ 0 รายการ
+
+### ✅ แก้แล้วด้วย overrides (2 รายการ)
+
+**Finding 10 — next → postcss:**
+- เพิ่ม `"overrides": { "postcss": "^8.5.10" }` ใน `package.json` แล้ว
+- `npm install` และ `npm audit` ยืนยัน 0 vulnerabilities
+- แนะนำลบ override ออกเมื่อ Next.js bundle `postcss >= 8.5.10` ในตัวเอง
+
+**Finding 11 — prisma → @hono/node-server:**
+- เพิ่ม `"overrides": { "@hono/node-server": "^1.19.13" }` ใน `package.json` แล้ว
+- `npm audit` ยืนยัน 0 vulnerabilities
+- แนะนำลบ override ออกเมื่อ Prisma อัปเดต `@prisma/dev` ให้ bundle `@hono/node-server >= 1.19.13` ในตัวเอง
+
+### สิ่งที่เหลือต้องทำ
+
+ไม่มี — ทุก finding แก้ไขเรียบร้อยแล้ว `npm audit` คืน 0 vulnerabilities

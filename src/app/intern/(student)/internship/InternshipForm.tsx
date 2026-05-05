@@ -224,7 +224,11 @@ function DatePickerField({
       <input
         type="hidden"
         name={name}
-        value={date ? date.toISOString().split("T")[0] : ""}
+        value={
+          date
+            ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+            : ""
+        }
       />
       {disabled ? (
         <div className="w-full flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-500 cursor-not-allowed">

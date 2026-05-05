@@ -15,7 +15,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Redirect root → /intern/login
-  if (pathname === "/" || pathname === "/register" || pathname.startsWith("/register/")) {
+  if (pathname === "/" || pathname === "/intern" || pathname === "/register" || pathname.startsWith("/register/")) {
     return NextResponse.redirect(new URL("/intern/login", request.url));
   }
 
@@ -28,6 +28,12 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/favicon") ||
     pathname.match(/\.\w+$/) // static assets
   ) {
+    // Rewrite /uploads/* to /api/uploads/* to bypass Next.js static file cache
+    if (pathname.startsWith("/uploads/")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/api" + pathname;
+      return NextResponse.rewrite(url);
+    }
     return NextResponse.next();
   }
 

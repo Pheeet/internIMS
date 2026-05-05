@@ -15,8 +15,6 @@ export async function GET() {
   const redirectUri = process.env.CMU_REDIRECT_URI;
   const scope = process.env.CMU_SCOPE ?? "api://cmu/Mis.Account.Read.Me.Basicinfo offline_access";
 
-  console.log("[CMU OAuth] Initiating authorization flow with scope:", scope);
-
   if (!clientId || !redirectUri) {
     console.error("[CMU OAuth] Missing CMU_CLIENT_ID or CMU_REDIRECT_URI");
     return NextResponse.redirect(new URL("/intern/login?error=server", BASE_URL), { status: 302 });
